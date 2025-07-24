@@ -4,7 +4,7 @@ use sqlx::postgres::PgPoolOptions;
 use tracing::{Level, info};
 
 pub mod errors;
-pub mod routes;
+pub mod modules;
 pub mod state;
 
 pub use errors::AppError;
@@ -37,12 +37,14 @@ async fn main() {
 
   let private_routes = Router::new()
     // Add your private routes here, e.g.:
-    .nest("/api/v1/datastore", routes::datastore::router());
+    .nest("/api/v1/contacts", modules::datastores::contacts::contact_routes::router());
 
   let app = Router::new()
     .merge(public_routes) // Public routes without auth
     .merge(private_routes) // Private routes with auth
-    .with_state(app_state);
+    .with_state(app_state)
+    .method_not_allowed_fallback(modules::fallback_handler::method_not_allowed)
+    .fallback(modules::fallback_handler::method_not_found);
 
   let listener = tokio::net::TcpListener::bind(&addr).await.expect("Failed to bind to address");
 

@@ -30,6 +30,7 @@ pub enum AppError {
   Serialization(String),
   /// Internal server errors
   Internal(String),
+  NotAllowed(String),
   /// Unhandled/unexpected errors
   Unhandled(String),
 }
@@ -116,6 +117,7 @@ impl fmt::Display for AppError {
       AppError::Cookie(err) => write!(f, "Cookie error: {}", err),
       AppError::Serialization(msg) => write!(f, "Serialization error: {}", msg),
       AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
+      AppError::NotAllowed(msg) => write!(f, "Not allowed: {}", msg),
       AppError::Unhandled(msg) => write!(f, "Unhandled error: {}", msg),
     }
   }
@@ -263,6 +265,10 @@ impl AppError {
   pub fn invalid_token() -> Self {
     AppError::Authentication(AuthError::InvalidToken)
   }
+
+  pub fn not_allowed(message: &str) -> Self {
+    AppError::NotAllowed(message.to_string())
+  }
 }
 
 // Axum IntoResponse implementation
@@ -362,6 +368,13 @@ impl IntoResponse for AppError {
         "An internal server error occurred".to_string(),
         Some(json!({ "details": msg })),
         Some("INT_001".to_string()),
+      ),
+      AppError::NotAllowed(msg) => (
+        StatusCode::METHOD_NOT_ALLOWED,
+        "METHOD_NOT_ALLOWED",
+        msg.clone(),
+        None,
+        Some("NOT_ALLOWED_001".to_string()),
       ),
       AppError::Unhandled(msg) => (
         StatusCode::INTERNAL_SERVER_ERROR,
