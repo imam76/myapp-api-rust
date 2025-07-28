@@ -99,9 +99,6 @@ pub struct ErrorResponse {
   pub timestamp: String,
 }
 
-/// Convenient Result type alias for the application
-pub type AppResult<T> = Result<T, AppError>;
-
 // Display implementations
 impl fmt::Display for AppError {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -202,6 +199,39 @@ impl From<ValidationError> for AppError {
 impl From<NotFoundError> for AppError {
   fn from(err: NotFoundError) -> Self {
     AppError::NotFound(err)
+  }
+}
+
+impl From<sqlx::Error> for AppError {
+  fn from(err: sqlx::Error) -> Self {
+    match err {
+      sqlx::Error::RowNotFound => AppError::NotFound(NotFoundError {
+        resource: "Database record".to_string(),
+        id: None,
+      }),
+      sqlx::Error::Database(db_err) => {
+        if let Some(code) = db_err.code() {
+          match code.as_ref() {
+            "23505" => AppError::Validation(ValidationError {
+              field: "unique_constraint".to_string(),
+              message: "Record already exists".to_string(),
+              code: Some("DUPLICATE_ENTRY".to_string()),
+            }),
+            "23503" => AppError::Validation(ValidationError {
+              field: "foreign_key".to_string(),
+              message: "Referenced record does not exist".to_string(),
+              code: Some("FOREIGN_KEY_VIOLATION".to_string()),
+            }),
+            _ => AppError::Database(DatabaseError::QueryFailed(db_err.message().to_string())),
+          }
+        } else {
+          AppError::Database(DatabaseError::QueryFailed(db_err.message().to_string()))
+        }
+      }
+      sqlx::Error::PoolClosed => AppError::Database(DatabaseError::ConnectionFailed("Connection pool closed".to_string())),
+      sqlx::Error::PoolTimedOut => AppError::Database(DatabaseError::ConnectionFailed("Connection pool timeout".to_string())),
+      _ => AppError::Database(DatabaseError::QueryFailed(err.to_string())),
+    }
   }
 }
 

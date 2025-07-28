@@ -5,10 +5,14 @@ use tracing::{Level, info};
 
 pub mod errors;
 pub mod modules;
+pub mod responses;
 pub mod state;
 
 pub use errors::AppError;
 pub use state::AppState;
+
+/// Convenient Result type alias for the application
+pub type AppResult<T> = Result<T, AppError>;
 
 #[tokio::main]
 async fn main() {
@@ -43,8 +47,8 @@ async fn main() {
     .merge(public_routes) // Public routes without auth
     .merge(private_routes) // Private routes with auth
     .with_state(app_state)
-    .method_not_allowed_fallback(modules::fallback_handler::method_not_allowed)
-    .fallback(modules::fallback_handler::method_not_found);
+    .method_not_allowed_fallback(modules::method_not_allowed_handler::fallback)
+    .fallback(modules::method_not_found_handler::fallback);
 
   let listener = tokio::net::TcpListener::bind(&addr).await.expect("Failed to bind to address");
 

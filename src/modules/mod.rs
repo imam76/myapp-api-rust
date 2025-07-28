@@ -1,3 +1,4 @@
 pub mod datastores;
 
-pub mod fallback_handler;
+pub mod method_not_allowed_handler;
+pub mod method_not_found_handler;
