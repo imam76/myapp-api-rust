@@ -1,57 +1,17 @@
-use axum::{Router, routing::get};
-use dotenvy::dotenv;
-use sqlx::postgres::PgPoolOptions;
-use tracing::{Level, info};
+//! The main entry point for the application binary.
+//!
+//! This file is responsible for setting up the Tokio runtime and starting the
+//! application server by calling the `run` function from the `myapp_api_rust` library crate.
+//! Keeping `main.rs` minimal allows the core application logic to reside in the library,
+//! which makes it easier to test and reuse.
 
-pub mod errors;
-pub mod modules;
-pub mod responses;
-pub mod state;
+use myapp_api_rust::run;
 
-pub use errors::AppError;
-pub use state::AppState;
-
-/// Convenient Result type alias for the application
-pub type AppResult<T> = Result<T, AppError>;
-
+/// The asynchronous main function.
+///
+/// It initializes the Tokio runtime using the `#[tokio::main]` macro and
+/// awaits the `run` function, which contains the application's primary logic.
 #[tokio::main]
 async fn main() {
-  // Initialize logging
-  tracing_subscriber::fmt().with_max_level(Level::INFO).init();
-
-  dotenv().ok();
-  let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-  let port = std::env::var("PORT").unwrap_or_else(|_| "8000".to_string());
-  let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-  let addr = format!("{}:{}", host, port);
-
-  // Database connection
-  let db_pool = PgPoolOptions::new()
-    .max_connections(10)
-    .min_connections(1)
-    .connect(&db_url)
-    .await
-    .expect("Failed to connect to the database");
-  info!("✅ Connected to database{}", db_url);
-
-  // Create app state
-  let app_state = AppState { db: db_pool };
-
-  let public_routes = Router::new().route("/", get(|| async { "🚀 Welcome to the My Rust Base API!" }));
-
-  let private_routes = Router::new()
-    // Add your private routes here, e.g.:
-    .nest("/api/v1/contacts", modules::datastores::contacts::contact_routes::router());
-
-  let app = Router::new()
-    .merge(public_routes) // Public routes without auth
-    .merge(private_routes) // Private routes with auth
-    .with_state(app_state)
-    .method_not_allowed_fallback(modules::method_not_allowed_handler::fallback)
-    .fallback(modules::method_not_found_handler::fallback);
-
-  let listener = tokio::net::TcpListener::bind(&addr).await.expect("Failed to bind to address");
-
-  info!("🚀 Server running on http://{}", &addr);
-  axum::serve(listener, app).await.expect("Failed to start server");
+  run().await;
 }

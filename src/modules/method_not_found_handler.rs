@@ -1,22 +1,22 @@
 use axum::{
-  extract::Request,
+  http::Uri,
   response::{IntoResponse, Response},
 };
 use tracing::warn;
 
-use crate::errors::AppError;
+use crate::errors::{AppError, NotFoundError};
 
-pub async fn fallback(req: Request) -> Response {
-  let method = req.method().clone();
-  let uri = req.uri().clone();
-
-  warn!("Method not found: {} {}", method, uri);
+pub async fn fallback(uri: Uri) -> Response {
+  warn!("Route not found: {}", uri);
 
   let error_message = format!(
-    "Enpoint {} - {} is not found. please check the API documentation for available endpoints.",
-    method, uri
+    "The requested endpoint '{}' does not exist. Please check the API documentation for available endpoints.",
+    uri
   );
 
-  let app_error = AppError::not_found(&error_message);
+  let app_error = AppError::NotFound(NotFoundError {
+    resource: error_message,
+    id: None,
+  });
   app_error.into_response()
 }

@@ -1,320 +1,139 @@
+//! This module defines the application's error handling infrastructure.
+//!
+//! It includes the main `AppError` enum, which consolidates all possible errors
+//! that can occur within the application. It also provides `From` implementations
+//! to seamlessly convert errors from external crates (like `sqlx`, `validator`, `axum`)
+//! into the `AppError` type. This allows for the convenient use of the `?` operator.
+
 use axum::{
-  Json,
+  extract::rejection::JsonRejection,
   http::StatusCode,
   response::{IntoResponse, Response},
+  Json,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;
 use tracing::error;
 use uuid::Uuid;
+use validator::ValidationErrors;
 
-/// Main application error type that represents all possible errors in the application
+/// The main application error type.
+///
+/// This enum consolidates all possible error types that can occur within the application.
+/// It is designed to be the single source of truth for error handling, providing a consistent
+/// way to represent and manage errors, from database issues to validation failures.
 #[derive(Debug, Clone)]
 pub enum AppError {
-  /// Authentication errors
+  /// For authentication-related failures.
   Authentication(AuthError),
-  /// Authorization errors  
+  /// For authorization-related failures (e.g., insufficient permissions).
   Authorization(String),
-  /// Validation errors
-  Validation(ValidationError),
-  /// Database related errors
+  /// For failures in data validation, typically from user input.
+  Validation(serde_json::Value),
+  /// For errors originating from the database.
   Database(DatabaseError),
-  /// Resource not found errors
+  /// For cases where a requested resource could not be found.
   NotFound(NotFoundError),
-  /// Request format/parsing errors
+  /// For malformed requests that cannot be parsed or processed.
   BadRequest(String),
-  /// Cookie related errors
+  /// For errors related to handling HTTP cookies.
   Cookie(CookieError),
-  /// Data serialization/deserialization errors
+  /// For errors during data serialization or deserialization.
   Serialization(String),
-  /// Internal server errors
+  /// For any other internal server errors that are not covered by other variants.
   Internal(String),
+  /// For requests using an unsupported HTTP method.
   NotAllowed(String),
-  /// Unhandled/unexpected errors
+  /// A catch-all for unhandled or unexpected errors.
   Unhandled(String),
 }
 
-/// Authentication specific errors
+/// Represents authentication-specific errors.
 #[derive(Debug, Clone)]
 pub enum AuthError {
-  /// Login credentials are invalid
+  /// The provided login credentials are invalid.
   InvalidCredentials,
-  /// Token is missing from request
+  /// An authentication token is missing from the request.
   MissingToken,
-  /// Token is invalid or malformed
+  /// The provided token is invalid, malformed, or cannot be parsed.
   InvalidToken,
-  /// Token has expired
+  /// The provided token has expired.
   ExpiredToken,
 }
 
-/// Database specific errors
+/// Represents database-specific errors.
 #[derive(Debug, Clone)]
 pub enum DatabaseError {
-  /// Connection to database failed
+  /// Failed to establish a connection to the database.
   ConnectionFailed(String),
-  /// Query execution failed
+  /// A database query failed to execute.
   QueryFailed(String),
-  /// Transaction failed
+  /// A database transaction failed.
   TransactionFailed(String),
-  /// Migration failed
+  /// A database migration failed.
   MigrationFailed(String),
 }
 
-/// Cookie related errors
+/// Represents errors related to HTTP cookies.
 #[derive(Debug, Clone)]
 pub enum CookieError {
-  /// Cookie format is invalid
+  /// The cookie format is invalid.
   InvalidFormat,
-  /// Cookie is missing
+  /// A required cookie is missing from the request.
   Missing,
-  /// Cookie has expired
+  /// The cookie has expired.
   Expired,
 }
 
-/// Validation error with field information
+/// Represents a single validation error for a specific field.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationError {
+  /// The name of the field that failed validation.
   pub field: String,
+  /// The error message describing the validation failure.
   pub message: String,
+  /// An optional error code associated with the validation rule.
   pub code: Option<String>,
 }
 
-/// Not found error with resource information
+/// Represents an error for a resource that could not be found.
 #[derive(Debug, Clone)]
 pub struct NotFoundError {
+  /// The type of the resource that was not found (e.g., "Contact", "User").
   pub resource: String,
+  /// The unique identifier of the resource that was not found, if applicable.
   pub id: Option<Uuid>,
 }
 
-/// Standardized error response structure
+/// A standardized structure for JSON error responses.
+///
+/// This struct defines the shape of the JSON body that is sent to the client
+/// in the event of an error. It provides a consistent and predictable format.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ErrorResponse {
+  /// A high-level classification of the error (e.g., "AuthenticationFailure", "ValidationError").
   pub error: String,
+  /// A human-readable message describing the error.
   pub message: String,
+  /// Optional, machine-readable details about the error, such as validation messages.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub details: Option<serde_json::Value>,
+  /// An optional, application-specific error code.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub code: Option<String>,
+  /// The timestamp when the error occurred, in ISO 8601 format.
   pub timestamp: String,
 }
 
-// Display implementations
-impl fmt::Display for AppError {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match self {
-      AppError::Authentication(err) => write!(f, "Authentication error: {}", err),
-      AppError::Authorization(msg) => write!(f, "Authorization error: {}", msg),
-      AppError::Validation(err) => {
-        write!(f, "Validation error: {} - {}", err.field, err.message)
-      }
-      AppError::Database(err) => write!(f, "Database error: {}", err),
-      AppError::NotFound(err) => write!(f, "Not found: {}", err),
-      AppError::BadRequest(msg) => write!(f, "Bad request: {}", msg),
-      AppError::Cookie(err) => write!(f, "Cookie error: {}", err),
-      AppError::Serialization(msg) => write!(f, "Serialization error: {}", msg),
-      AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
-      AppError::NotAllowed(msg) => write!(f, "Not allowed: {}", msg),
-      AppError::Unhandled(msg) => write!(f, "Unhandled error: {}", msg),
-    }
-  }
-}
-
-impl fmt::Display for AuthError {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match self {
-      AuthError::InvalidCredentials => write!(f, "Invalid email or password"),
-      AuthError::MissingToken => write!(f, "Authentication token is missing"),
-      AuthError::InvalidToken => write!(f, "Authentication token is invalid"),
-      AuthError::ExpiredToken => write!(f, "Authentication token has expired"),
-    }
-  }
-}
-
-impl fmt::Display for DatabaseError {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match self {
-      DatabaseError::ConnectionFailed(msg) => {
-        write!(f, "Database connection failed: {}", msg)
-      }
-      DatabaseError::QueryFailed(msg) => write!(f, "Database query failed: {}", msg),
-      DatabaseError::TransactionFailed(msg) => {
-        write!(f, "Database transaction failed: {}", msg)
-      }
-      DatabaseError::MigrationFailed(msg) => write!(f, "Database migration failed: {}", msg),
-    }
-  }
-}
-
-impl fmt::Display for CookieError {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match self {
-      CookieError::InvalidFormat => write!(f, "Cookie format is invalid"),
-      CookieError::Missing => write!(f, "Required cookie is missing"),
-      CookieError::Expired => write!(f, "Cookie has expired"),
-    }
-  }
-}
-
-impl fmt::Display for NotFoundError {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match &self.id {
-      Some(id) => write!(f, "{} with id {} not found", self.resource, id),
-      None => write!(f, "{} not found", self.resource),
-    }
-  }
-}
-
-// Standard Error trait implementations
-impl std::error::Error for AppError {}
-impl std::error::Error for AuthError {}
-impl std::error::Error for DatabaseError {}
-impl std::error::Error for CookieError {}
-
-// Conversion implementations for easier error creation
-impl From<AuthError> for AppError {
-  fn from(err: AuthError) -> Self {
-    AppError::Authentication(err)
-  }
-}
-
-impl From<DatabaseError> for AppError {
-  fn from(err: DatabaseError) -> Self {
-    AppError::Database(err)
-  }
-}
-
-impl From<CookieError> for AppError {
-  fn from(err: CookieError) -> Self {
-    AppError::Cookie(err)
-  }
-}
-
-impl From<ValidationError> for AppError {
-  fn from(err: ValidationError) -> Self {
-    AppError::Validation(err)
-  }
-}
-
-impl From<NotFoundError> for AppError {
-  fn from(err: NotFoundError) -> Self {
-    AppError::NotFound(err)
-  }
-}
-
-impl From<sqlx::Error> for AppError {
-  fn from(err: sqlx::Error) -> Self {
-    match err {
-      sqlx::Error::RowNotFound => AppError::NotFound(NotFoundError {
-        resource: "Database record".to_string(),
-        id: None,
-      }),
-      sqlx::Error::Database(db_err) => {
-        if let Some(code) = db_err.code() {
-          match code.as_ref() {
-            "23505" => AppError::Validation(ValidationError {
-              field: "unique_constraint".to_string(),
-              message: "Record already exists".to_string(),
-              code: Some("DUPLICATE_ENTRY".to_string()),
-            }),
-            "23503" => AppError::Validation(ValidationError {
-              field: "foreign_key".to_string(),
-              message: "Referenced record does not exist".to_string(),
-              code: Some("FOREIGN_KEY_VIOLATION".to_string()),
-            }),
-            _ => AppError::Database(DatabaseError::QueryFailed(db_err.message().to_string())),
-          }
-        } else {
-          AppError::Database(DatabaseError::QueryFailed(db_err.message().to_string()))
-        }
-      }
-      sqlx::Error::PoolClosed => AppError::Database(DatabaseError::ConnectionFailed("Connection pool closed".to_string())),
-      sqlx::Error::PoolTimedOut => AppError::Database(DatabaseError::ConnectionFailed("Connection pool timeout".to_string())),
-      _ => AppError::Database(DatabaseError::QueryFailed(err.to_string())),
-    }
-  }
-}
-
-// Helper constructors
-impl AppError {
-  /// Create a validation error
-  pub fn validation(field: &str, message: &str) -> Self {
-    AppError::Validation(ValidationError {
-      field: field.to_string(),
-      message: message.to_string(),
-      code: None,
-    })
-  }
-
-  /// Create a validation error with code
-  pub fn validation_with_code(field: &str, message: &str, code: &str) -> Self {
-    AppError::Validation(ValidationError {
-      field: field.to_string(),
-      message: message.to_string(),
-      code: Some(code.to_string()),
-    })
-  }
-
-  /// Create a not found error
-  pub fn not_found(resource: &str) -> Self {
-    AppError::NotFound(NotFoundError {
-      resource: resource.to_string(),
-      id: None,
-    })
-  }
-
-  /// Create a not found error with ID
-  pub fn not_found_with_id(resource: &str, id: Uuid) -> Self {
-    AppError::NotFound(NotFoundError {
-      resource: resource.to_string(),
-      id: Some(id),
-    })
-  }
-
-  /// Create a database connection error
-  pub fn db_connection(message: &str) -> Self {
-    AppError::Database(DatabaseError::ConnectionFailed(message.to_string()))
-  }
-
-  /// Create a database query error
-  pub fn db_query(message: &str) -> Self {
-    AppError::Database(DatabaseError::QueryFailed(message.to_string()))
-  }
-
-  /// Create an invalid credentials error
-  pub fn invalid_credentials() -> Self {
-    AppError::Authentication(AuthError::InvalidCredentials)
-  }
-
-  /// Create a missing token error
-  pub fn missing_token() -> Self {
-    AppError::Authentication(AuthError::MissingToken)
-  }
-
-  /// Create an invalid token error
-  pub fn invalid_token() -> Self {
-    AppError::Authentication(AuthError::InvalidToken)
-  }
-
-  pub fn not_allowed(message: &str) -> Self {
-    AppError::NotAllowed(message.to_string())
-  }
-}
-
-// Axum IntoResponse implementation
+/// Converts an `AppError` into an HTTP `Response`.
+///
+/// This implementation is the cornerstone of the application's error handling. It takes any
+/// `AppError` variant, logs it appropriately, and transforms it into a user-friendly
+/// HTTP response with the correct status code and a JSON body defined by `ErrorResponse`.
 impl IntoResponse for AppError {
   fn into_response(self) -> Response {
-    // Log the error with appropriate level
-    match &self {
-      AppError::Internal(_) | AppError::Unhandled(_) | AppError::Database(_) => {
-        error!("Application Error: {:?}", self);
-      }
-      _ => {
-        tracing::warn!("Application Error: {:?}", self);
-      }
-    }
-
-    let (status_code, error_type, message, details, code) = match &self {
+    let (status, error_type, message, details, code) = match self {
       AppError::Authentication(auth_err) => match auth_err {
         AuthError::InvalidCredentials => (
           StatusCode::UNAUTHORIZED,
@@ -352,112 +171,228 @@ impl IntoResponse for AppError {
         Some(json!({ "details": msg })),
         Some("AUTHZ_001".to_string()),
       ),
-      AppError::Validation(validation_err) => (
-        StatusCode::BAD_REQUEST,
+      AppError::Validation(validation_err_json) => (
+        StatusCode::UNPROCESSABLE_ENTITY,
         "VALIDATION_FAILED",
         "Request validation failed".to_string(),
-        Some(json!({
-            "field": validation_err.field,
-            "message": validation_err.message,
-            "code": validation_err.code
-        })),
+        Some(validation_err_json),
         Some("VAL_001".to_string()),
       ),
-      AppError::Database(db_err) => (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "DATABASE_ERROR",
-        "A database error occurred".to_string(),
-        Some(json!({ "type": format!("{:?}", db_err) })),
-        Some("DB_001".to_string()),
-      ),
+      AppError::Database(db_err) => {
+        error!("Database error: {:?}", db_err);
+        (
+          StatusCode::INTERNAL_SERVER_ERROR,
+          "DATABASE_ERROR",
+          "A database error occurred".to_string(),
+          None, // Avoid leaking detailed db errors
+          Some("DB_001".to_string()),
+        )
+      }
       AppError::NotFound(not_found_err) => (
         StatusCode::NOT_FOUND,
         "RESOURCE_NOT_FOUND",
-        format!("{}", not_found_err),
-        not_found_err.id.map(|id| json!({ "resource": not_found_err.resource, "id": id })),
+        not_found_err.to_string(),
+        not_found_err.id.map(|id| json!({ "resource": not_found_err.resource.clone(), "id": id })),
         Some("NF_001".to_string()),
       ),
-      AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, "BAD_REQUEST", msg.clone(), None, Some("BR_001".to_string())),
+      AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, "BAD_REQUEST", msg, None, Some("BR_001".to_string())),
       AppError::Cookie(cookie_err) => (
         StatusCode::BAD_REQUEST,
         "COOKIE_ERROR",
-        format!("{}", cookie_err),
+        cookie_err.to_string(),
         None,
         Some("CK_001".to_string()),
       ),
-      AppError::Serialization(msg) => (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "SERIALIZATION_ERROR",
-        "Data serialization failed".to_string(),
-        Some(json!({ "details": msg })),
-        Some("SER_001".to_string()),
-      ),
-      AppError::Internal(msg) => (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "INTERNAL_ERROR",
-        "An internal server error occurred".to_string(),
-        Some(json!({ "details": msg })),
-        Some("INT_001".to_string()),
-      ),
+      AppError::Serialization(msg) => {
+        error!("Serialization error: {}", msg);
+        (
+          StatusCode::INTERNAL_SERVER_ERROR,
+          "SERIALIZATION_ERROR",
+          "Data serialization failed".to_string(),
+          None,
+          Some("SER_001".to_string()),
+        )
+      }
+      AppError::Internal(msg) => {
+        error!("Internal server error: {}", msg);
+        (
+          StatusCode::INTERNAL_SERVER_ERROR,
+          "INTERNAL_ERROR",
+          "An internal server error occurred".to_string(),
+          None,
+          Some("INT_001".to_string()),
+        )
+      }
       AppError::NotAllowed(msg) => (
         StatusCode::METHOD_NOT_ALLOWED,
         "METHOD_NOT_ALLOWED",
-        msg.clone(),
+        msg,
         None,
         Some("NOT_ALLOWED_001".to_string()),
       ),
-      AppError::Unhandled(msg) => (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "UNHANDLED_ERROR",
-        "An unexpected error occurred".to_string(),
-        Some(json!({ "details": msg })),
-        Some("UNH_001".to_string()),
-      ),
+      AppError::Unhandled(msg) => {
+        error!("Unhandled error: {}", msg);
+        (
+          StatusCode::INTERNAL_SERVER_ERROR,
+          "UNHANDLED_ERROR",
+          "An unexpected error occurred".to_string(),
+          None,
+          Some("UNH_001".to_string()),
+        )
+      }
     };
 
     let error_response = ErrorResponse {
       error: error_type.to_string(),
       message: message.to_string(),
       details,
-      code,
+      code: code.map(String::from),
       timestamp: chrono::Utc::now().to_rfc3339(),
     };
 
-    (status_code, Json(error_response)).into_response()
+    (status, Json(error_response)).into_response()
   }
 }
 
-// Helper macros for easier error creation
-#[macro_export]
-macro_rules! validation_error {
-  ($field:expr, $message:expr) => {
-    $crate::errors::AppError::validation($field, $message)
-  };
-  ($field:expr, $message:expr, $code:expr) => {
-    $crate::errors::AppError::validation_with_code($field, $message, $code)
-  };
+impl fmt::Display for AppError {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      AppError::Authentication(err) => write!(f, "Authentication error: {}", err),
+      AppError::Authorization(msg) => write!(f, "Authorization error: {}", msg),
+      AppError::Validation(err) => write!(f, "Validation error: {}", err),
+      AppError::Database(err) => write!(f, "Database error: {}", err),
+      AppError::NotFound(err) => write!(f, "Not found: {}", err),
+      AppError::BadRequest(msg) => write!(f, "Bad request: {}", msg),
+      AppError::Cookie(err) => write!(f, "Cookie error: {}", err),
+      AppError::Serialization(msg) => write!(f, "Serialization error: {}", msg),
+      AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
+      AppError::NotAllowed(msg) => write!(f, "Not allowed: {}", msg),
+      AppError::Unhandled(msg) => write!(f, "Unhandled error: {}", msg),
+    }
+  }
 }
 
-#[macro_export]
-macro_rules! not_found {
-  ($resource:expr) => {
-    $crate::errors::AppError::not_found($resource)
-  };
-  ($resource:expr, $id:expr) => {
-    $crate::errors::AppError::not_found_with_id($resource, $id)
-  };
+impl fmt::Display for AuthError {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      AuthError::InvalidCredentials => write!(f, "Invalid email or password"),
+      AuthError::MissingToken => write!(f, "Authentication token is missing"),
+      AuthError::InvalidToken => write!(f, "Authentication token is invalid"),
+      AuthError::ExpiredToken => write!(f, "Authentication token has expired"),
+    }
+  }
 }
 
-#[macro_export]
-macro_rules! bad_request {
-  ($message:expr) => {
-    $crate::errors::AppError::BadRequest($message.to_string())
-  };
+impl fmt::Display for DatabaseError {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      DatabaseError::ConnectionFailed(msg) => write!(f, "Database connection failed: {}", msg),
+      DatabaseError::QueryFailed(msg) => write!(f, "Database query failed: {}", msg),
+      DatabaseError::TransactionFailed(msg) => write!(f, "Database transaction failed: {}", msg),
+      DatabaseError::MigrationFailed(msg) => write!(f, "Database migration failed: {}", msg),
+    }
+  }
 }
 
-#[macro_export]
-macro_rules! internal_error {
-  ($message:expr) => {
-    $crate::errors::AppError::Internal($message.to_string())
-  };
+impl fmt::Display for CookieError {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      CookieError::InvalidFormat => write!(f, "Cookie format is invalid"),
+      CookieError::Missing => write!(f, "Required cookie is missing"),
+      CookieError::Expired => write!(f, "Cookie has expired"),
+    }
+  }
+}
+
+impl fmt::Display for NotFoundError {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match &self.id {
+      Some(id) => write!(f, "{} with id {} not found", self.resource, id),
+      None => write!(f, "{} not found", self.resource),
+    }
+  }
+}
+
+/// Converts `sqlx::Error` into `AppError`.
+///
+/// This allows for the use of the `?` operator on `sqlx::Result`, automatically
+/// converting database errors into the application's custom error type.
+/// It also handles specific database errors, like unique constraint violations.
+impl From<sqlx::Error> for AppError {
+  fn from(err: sqlx::Error) -> Self {
+    match &err {
+      sqlx::Error::RowNotFound => AppError::NotFound(NotFoundError {
+        resource: "resource".to_string(), // Can be made more specific in the calling code
+        id: None,
+      }),
+      sqlx::Error::Database(db_err) => {
+        if let Some(code) = db_err.code() {
+          if code == "23505" {
+            // Unique violation
+            return AppError::Validation(json!({
+                "code": "duplicate_entry",
+                "message": "An entry with this value already exists."
+            }));
+          }
+        }
+        AppError::Database(DatabaseError::QueryFailed(err.to_string()))
+      }
+      _ => AppError::Database(DatabaseError::QueryFailed(err.to_string())),
+    }
+  }
+}
+
+/// Converts `validator::ValidationErrors` into `AppError::Validation`.
+///
+/// This implementation enables the use of the `?` operator on the result of `validate()`.
+/// It transforms the detailed error structure from the `validator` crate into a
+/// `serde_json::Value`, which can then be included in the HTTP response body.
+impl From<ValidationErrors> for AppError {
+  fn from(errors: ValidationErrors) -> Self {
+    let details = serde_json::to_value(errors.field_errors())
+      .unwrap_or_else(|_| json!({"error": "Failed to serialize validation errors"}));
+    AppError::Validation(details)
+  }
+}
+
+/// Converts `axum::extract::rejection::JsonRejection` into `AppError::BadRequest`.
+///
+/// This handles errors that occur during the JSON deserialization of a request body.
+/// If Axum fails to parse the JSON, this converts the rejection into a clear `BadRequest` error.
+impl From<JsonRejection> for AppError {
+  fn from(rejection: JsonRejection) -> Self {
+    AppError::BadRequest(rejection.to_string())
+  }
+}
+
+/// Converts `serde_json::Error` into `AppError::Serialization`.
+///
+/// This handles errors from the `serde_json` crate, which can occur during either
+/// serialization or deserialization.
+impl From<serde_json::Error> for AppError {
+  fn from(err: serde_json::Error) -> Self {
+    AppError::Serialization(err.to_string())
+  }
+}
+
+/// Converts `uuid::Error` into `AppError::BadRequest`.
+///
+/// This is useful for handlers that parse a `Uuid` from a path or query parameter.
+/// If the string is not a valid UUID, it results in a `BadRequest` error.
+impl From<uuid::Error> for AppError {
+  fn from(err: uuid::Error) -> Self {
+    AppError::BadRequest(format!("Invalid UUID: {}", err))
+  }
+}
+
+impl AppError {
+    /// Create a validation error with a code.
+    pub fn validation_with_code(field: &str, message: &str, code: &str) -> Self {
+        let validation_error = ValidationError {
+            field: field.to_string(),
+            message: message.to_string(),
+            code: Some(code.to_string()),
+        };
+        AppError::Validation(json!({ field: [validation_error] }))
+    }
 }

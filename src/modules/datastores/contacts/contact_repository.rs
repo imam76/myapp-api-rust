@@ -18,28 +18,28 @@ pub trait ContactRepository {
   async fn find_active(&self) -> AppResult<Vec<Contact>>;
 }
 
-pub struct ContactRepositoryImpl {
+pub struct SqlxContactRepository {
   db: PgPool,
 }
 
-impl ContactRepositoryImpl {
+impl SqlxContactRepository {
   pub fn new(db: PgPool) -> Self {
     Self { db }
   }
 }
 
 #[async_trait]
-impl ContactRepository for ContactRepositoryImpl {
+impl ContactRepository for SqlxContactRepository {
   async fn find_all(&self) -> AppResult<Vec<Contact>> {
     let contacts = sqlx::query_as!(
       Contact,
       r#"
-            SELECT 
-                id, code, name, email, position, type as contact_type, 
-                address, is_active, created_by, updated_by, created_at, updated_at
-            FROM contacts 
-            ORDER BY created_at DESC
-            "#
+        SELECT 
+          id, code, name, email, position, type as contact_type, 
+          address, is_active, created_by, updated_by, created_at, updated_at
+        FROM contacts 
+        ORDER BY created_at DESC
+      "#
     )
     .fetch_all(&self.db)
     .await?;
@@ -57,13 +57,13 @@ impl ContactRepository for ContactRepositoryImpl {
     let contacts = sqlx::query_as!(
       Contact,
       r#"
-            SELECT 
-                id, code, name, email, position, type as contact_type, 
-                address, is_active, created_by, updated_by, created_at, updated_at
-            FROM contacts 
-            ORDER BY created_at DESC
-            LIMIT $1 OFFSET $2
-            "#,
+        SELECT 
+          id, code, name, email, position, type as contact_type, 
+          address, is_active, created_by, updated_by, created_at, updated_at
+        FROM contacts 
+        ORDER BY created_at DESC
+        LIMIT $1 OFFSET $2
+      "#,
       limit as i64,
       offset as i64
     )
@@ -77,12 +77,12 @@ impl ContactRepository for ContactRepositoryImpl {
     let contact = sqlx::query_as!(
       Contact,
       r#"
-            SELECT 
-                id, code, name, email, position, type as contact_type, 
-                address, is_active, created_by, updated_by, created_at, updated_at
-            FROM contacts 
-            WHERE id = $1
-            "#,
+        SELECT 
+          id, code, name, email, position, type as contact_type, 
+          address, is_active, created_by, updated_by, created_at, updated_at
+        FROM contacts 
+        WHERE id = $1
+      "#,
       id
     )
     .fetch_optional(&self.db)
@@ -95,12 +95,12 @@ impl ContactRepository for ContactRepositoryImpl {
     let contact = sqlx::query_as!(
       Contact,
       r#"
-            SELECT 
-                id, code, name, email, position, type as contact_type, 
-                address, is_active, created_by, updated_by, created_at, updated_at
-            FROM contacts 
-            WHERE code = $1
-            "#,
+        SELECT 
+          id, code, name, email, position, type as contact_type, 
+          address, is_active, created_by, updated_by, created_at, updated_at
+        FROM contacts 
+        WHERE code = $1
+      "#,
       code
     )
     .fetch_optional(&self.db)
@@ -113,12 +113,12 @@ impl ContactRepository for ContactRepositoryImpl {
     let new_contact = sqlx::query_as!(
       Contact,
       r#"
-            INSERT INTO contacts (code, name, email, position, type, address, created_by)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING 
-                id, code, name, email, position, type as contact_type, 
-                address, is_active, created_by, updated_by, created_at, updated_at
-            "#,
+        INSERT INTO contacts (code, name, email, position, type, address, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING 
+          id, code, name, email, position, type as contact_type, 
+          address, is_active, created_by, updated_by, created_at, updated_at
+      "#,
       contact.code,
       contact.name,
       contact.email,
@@ -143,22 +143,22 @@ impl ContactRepository for ContactRepositoryImpl {
     let updated_contact = sqlx::query_as!(
       Contact,
       r#"
-            UPDATE contacts 
-            SET 
-                code = COALESCE($1, code),
-                name = COALESCE($2, name),
-                email = COALESCE($3, email),
-                position = COALESCE($4, position),
-                type = COALESCE($5, type),
-                address = COALESCE($6, address),
-                is_active = COALESCE($7, is_active),
-                updated_by = $8,
-                updated_at = NOW()
-            WHERE id = $9
-            RETURNING 
-                id, code, name, email, position, type as contact_type, 
-                address, is_active, created_by, updated_by, created_at, updated_at
-            "#,
+        UPDATE contacts 
+        SET 
+          code = COALESCE($1, code),
+          name = COALESCE($2, name),
+          email = COALESCE($3, email),
+          position = COALESCE($4, position),
+          type = COALESCE($5, type),
+          address = COALESCE($6, address),
+          is_active = COALESCE($7, is_active),
+          updated_by = $8,
+          updated_at = NOW()
+        WHERE id = $9
+        RETURNING 
+          id, code, name, email, position, type as contact_type, 
+          address, is_active, created_by, updated_by, created_at, updated_at
+      "#,
       contact.code,
       contact.name,
       contact.email,
@@ -185,13 +185,13 @@ impl ContactRepository for ContactRepositoryImpl {
     let contacts = sqlx::query_as!(
       Contact,
       r#"
-            SELECT 
-                id, code, name, email, position, type as contact_type, 
-                address, is_active, created_by, updated_by, created_at, updated_at
-            FROM contacts 
-            WHERE type = $1 AND is_active = true
-            ORDER BY created_at DESC
-            "#,
+        SELECT 
+          id, code, name, email, position, type as contact_type, 
+          address, is_active, created_by, updated_by, created_at, updated_at
+        FROM contacts 
+        WHERE type = $1 AND is_active = true
+        ORDER BY created_at DESC
+      "#,
       contact_type
     )
     .fetch_all(&self.db)
@@ -204,22 +204,17 @@ impl ContactRepository for ContactRepositoryImpl {
     let contacts = sqlx::query_as!(
       Contact,
       r#"
-            SELECT 
-                id, code, name, email, position, type as contact_type, 
-                address, is_active, created_by, updated_by, created_at, updated_at
-            FROM contacts 
-            WHERE is_active = true
-            ORDER BY created_at DESC
-            "#
+        SELECT 
+          id, code, name, email, position, type as contact_type, 
+          address, is_active, created_by, updated_by, created_at, updated_at
+        FROM contacts 
+        WHERE is_active = true
+        ORDER BY created_at DESC
+      "#
     )
     .fetch_all(&self.db)
     .await?;
 
     Ok(contacts)
   }
-}
-
-// Factory function to create repository
-pub fn create_contact_repository(db: PgPool) -> Box<dyn ContactRepository + Send + Sync> {
-  Box::new(ContactRepositoryImpl::new(db))
 }

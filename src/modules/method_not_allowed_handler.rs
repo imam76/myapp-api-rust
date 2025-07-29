@@ -17,6 +17,6 @@ pub async fn fallback(req: Request) -> Response {
     method, uri
   );
 
-  let app_error = AppError::not_allowed(&error_message);
+  let app_error = AppError::NotAllowed(error_message);
   app_error.into_response()
 }
