@@ -182,11 +182,9 @@ impl ContactRepository for SqlxContactRepository {
   }
 
   async fn delete(&self, id: Uuid, user_id: Uuid) -> AppResult<bool> {
-    let result = sqlx::query!(
-      "DELETE FROM contacts WHERE id = $1 AND created_by = $2", 
-      id, 
-      user_id
-    ).execute(&self.db).await?;
+    let result = sqlx::query!("DELETE FROM contacts WHERE id = $1 AND created_by = $2", id, user_id)
+      .execute(&self.db)
+      .await?;
 
     Ok(result.rows_affected() > 0)
   }
@@ -252,12 +250,9 @@ impl ContactRepository for SqlxContactRepository {
     let offset = (page - 1) * limit;
 
     // Get total count for pagination
-    let total_result = sqlx::query!(
-      "SELECT COUNT(*) FROM contacts WHERE created_by = $1",
-      user_id
-    )
-    .fetch_one(&self.db)
-    .await?;
+    let total_result = sqlx::query!("SELECT COUNT(*) FROM contacts WHERE created_by = $1", user_id)
+      .fetch_one(&self.db)
+      .await?;
 
     let total = total_result.count.unwrap_or(0) as u64;
 
