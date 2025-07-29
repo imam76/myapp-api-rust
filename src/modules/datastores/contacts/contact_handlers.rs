@@ -5,13 +5,17 @@ use crate::{
   errors::{AppError, NotFoundError},
   modules::{
     auth::current_user::CurrentUser,
-    datastores::contacts::contact_models::{ContactResponse, CreateContactRequest, UpdateContactRequest},
+    datastores::{
+      contacts::contact_models::{ContactResponse, CreateContactRequest, UpdateContactRequest},
+      workspaces::workspace_models::WorkspaceRole,
+    },
   },
   responses::{ApiResponse, GetContactsQuery, PaginatedResponse, PaginationMeta},
 };
 use axum::{
-  Json, http::StatusCode,
+  Json,
   extract::{Path, Query, State, rejection::JsonRejection},
+  http::StatusCode,
 };
 use uuid::Uuid;
 use validator::Validate;
@@ -20,7 +24,30 @@ const DEFAULT_PAGE: u32 = 1;
 const DEFAULT_LIMIT: u32 = 10;
 const MAX_LIMIT: u32 = 100;
 
+/// Helper function to check if user has required role or higher in workspace
+async fn check_workspace_permission(
+  workspace_repository: &Arc<dyn crate::modules::datastores::workspaces::workspace_repository::WorkspaceRepository + Send + Sync>,
+  workspace_id: Uuid,
+  user_id: Uuid,
+  required_role: WorkspaceRole,
+) -> AppResult<bool> {
+  let user_role = workspace_repository.check_user_workspace_access(user_id, workspace_id).await?;
+
+  match user_role {
+    Some(role) => {
+      let has_permission = match required_role {
+        WorkspaceRole::Viewer => matches!(role, WorkspaceRole::Viewer | WorkspaceRole::Member | WorkspaceRole::Admin),
+        WorkspaceRole::Member => matches!(role, WorkspaceRole::Member | WorkspaceRole::Admin),
+        WorkspaceRole::Admin => matches!(role, WorkspaceRole::Admin),
+      };
+      Ok(has_permission)
+    }
+    None => Ok(false),
+  }
+}
+
 /// Handles the request to retrieve a paginated list of contacts for the authenticated user.
+/// This handler will get contacts from the user's default workspace or all accessible workspaces.
 ///
 /// # Arguments
 ///
@@ -65,6 +92,7 @@ pub async fn get_list(
 }
 
 /// Handles the request to create a new contact for the authenticated user.
+/// The contact will be created in the specified workspace or user's default workspace.
 ///
 /// # Arguments
 ///
@@ -89,9 +117,28 @@ pub async fn create(
 
   tracing::debug!("Creating contact with code: {} for user: {}", payload.code, current_user.user_id);
 
-  // Check if code already exists for this user
-  if let Some(_) = repository.find_by_code(&payload.code).await? {
-    return Err(AppError::validation_with_code("code", "Contact code already exists", "DUPLICATE_CODE"));
+  // Check if workspace_id is provided and validate access
+  if let Some(workspace_id) = payload.workspace_id {
+    let workspace_repository = &state.workspace_repository;
+    if !check_workspace_permission(&workspace_repository, workspace_id, current_user.user_id, WorkspaceRole::Member).await? {
+      return Err(AppError::Authorization(
+        "You don't have permission to create contacts in this workspace".to_string(),
+      ));
+    }
+
+    // Check if code already exists in this workspace
+    if let Some(_) = repository.find_by_code_and_workspace(&payload.code, workspace_id).await? {
+      return Err(AppError::validation_with_code(
+        "code",
+        "Contact code already exists in this workspace",
+        "DUPLICATE_CODE",
+      ));
+    }
+  } else {
+    // Check if code already exists for this user (global check for user-level contacts)
+    if let Some(_) = repository.find_by_code(&payload.code).await? {
+      return Err(AppError::validation_with_code("code", "Contact code already exists", "DUPLICATE_CODE"));
+    }
   }
 
   let contact = repository.create(payload, current_user.user_id).await?;
@@ -113,10 +160,10 @@ pub async fn create(
 ///
 /// # Returns
 ///
-/// A `Json` response containing the `ContactResponse` if found and owned by the user, otherwise a 404 Not Found error.
+/// A `Json` response containing the `ContactResponse` if found and accessible by the user, otherwise a 404 Not Found error.
 #[axum::debug_handler]
 pub async fn get_by_id(
-  State(state): State<Arc<AppState>>, 
+  State(state): State<Arc<AppState>>,
   Path(id): Path<Uuid>,
   current_user: CurrentUser,
 ) -> AppResult<Json<ApiResponse<ContactResponse>>> {
@@ -161,17 +208,40 @@ pub async fn update(
 
   tracing::debug!("Updating contact with ID: {} for user: {}", id, current_user.user_id);
 
-  let updated_contact = repository.update(id, payload, current_user.user_id).await?.ok_or_else(|| {
-    AppError::NotFound(NotFoundError {
-      resource: "Contact".to_string(),
-      id: Some(id),
-    })
-  })?;
+  // Check if workspace_id is provided and validate access
+  if let Some(workspace_id) = payload.workspace_id {
+    let workspace_repository = &state.workspace_repository;
+    if !check_workspace_permission(&workspace_repository, workspace_id, current_user.user_id, WorkspaceRole::Member).await? {
+      return Err(AppError::Authorization(
+        "You don't have permission to update contacts in this workspace".to_string(),
+      ));
+    }
 
-  tracing::info!("Contact with ID {} updated successfully for user {}", id, current_user.user_id);
+    let updated_contact = repository
+      .update_by_workspace(id, workspace_id, payload, current_user.user_id)
+      .await?
+      .ok_or_else(|| {
+        AppError::NotFound(NotFoundError {
+          resource: "Contact".to_string(),
+          id: Some(id),
+        })
+      })?;
 
-  let response = ApiResponse::success(ContactResponse::from(updated_contact), "Contact updated successfully");
-  Ok(Json(response))
+    tracing::info!("Contact with ID {} updated successfully for workspace {}", id, workspace_id);
+    let response = ApiResponse::success(ContactResponse::from(updated_contact), "Contact updated successfully");
+    Ok(Json(response))
+  } else {
+    let updated_contact = repository.update(id, payload, current_user.user_id).await?.ok_or_else(|| {
+      AppError::NotFound(NotFoundError {
+        resource: "Contact".to_string(),
+        id: Some(id),
+      })
+    })?;
+
+    tracing::info!("Contact with ID {} updated successfully for user {}", id, current_user.user_id);
+    let response = ApiResponse::success(ContactResponse::from(updated_contact), "Contact updated successfully");
+    Ok(Json(response))
+  }
 }
 
 /// Handles the request to delete a contact by its ID for the authenticated user.
@@ -186,11 +256,7 @@ pub async fn update(
 ///
 /// A `Json` response with a success message if the deletion was successful, otherwise a 404 error.
 #[axum::debug_handler]
-pub async fn delete(
-  State(state): State<Arc<AppState>>, 
-  Path(id): Path<Uuid>,
-  current_user: CurrentUser,
-) -> AppResult<Json<ApiResponse<()>>> {
+pub async fn delete(State(state): State<Arc<AppState>>, Path(id): Path<Uuid>, current_user: CurrentUser) -> AppResult<Json<ApiResponse<()>>> {
   let repository = &state.contact_repository;
 
   tracing::debug!("Deleting contact with ID: {} for user: {}", id, current_user.user_id);
