@@ -4,9 +4,10 @@ use axum::{extract::State, http::StatusCode, Json};
 use serde_json::{json, Value};
 
 use crate::{
-    errors::AppError,
+    errors::{AppError, NotFoundError},
     modules::auth::{
         auth_service::{login_user, register_user},
+        current_user::CurrentUser,
         user_dto::{LoginUserDto, RegisterUserDto},
     },
     state::AppState,
@@ -28,4 +29,39 @@ pub async fn login_user_handler(
     let token = login_user(state, body).await?;
     let token_response = json!({"status": "success", "token": token});
     Ok((StatusCode::OK, Json(token_response)))
+}
+
+/// Protected endpoint that returns information about the current authenticated user.
+///
+/// This handler demonstrates how to use the `CurrentUser` extractor to access
+/// the authenticated user's information in protected routes.
+pub async fn get_current_user_handler(
+    State(state): State<Arc<AppState>>,
+    current_user: CurrentUser,
+) -> Result<Json<Value>, AppError> {
+    // Find the user in the database using the ID from the JWT token
+    let user = state
+        .auth_repository
+        .find_by_id(current_user.user_id)
+        .await?;
+    
+    if let Some(user) = user {
+        let response = json!({
+            "status": "success",
+            "data": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "is_active": user.is_active,
+                "created_at": user.created_at,
+                "updated_at": user.updated_at
+            }
+        });
+        Ok(Json(response))
+    } else {
+        Err(AppError::NotFound(NotFoundError {
+            resource: "User".to_string(),
+            id: Some(current_user.user_id),
+        }))
+    }
 }

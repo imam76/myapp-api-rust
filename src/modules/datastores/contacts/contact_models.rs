@@ -24,6 +24,7 @@ pub struct Contact {
 
 /// Represents the payload for creating a new contact.
 /// This struct uses `validator` to enforce declarative validation rules on the incoming data.
+/// The `created_by` field is automatically set from the authenticated user.
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateContactRequest {
   #[validate(length(min = 1, message = "Code is required"))]
@@ -37,11 +38,11 @@ pub struct CreateContactRequest {
   #[validate(length(min = 1, message = "Contact type is required"))]
   pub contact_type: String,
   pub address: Option<String>,
-  pub created_by: Option<Uuid>,
 }
 
 /// Represents the payload for updating an existing contact.
 /// All fields are optional, allowing for partial updates.
+/// The `updated_by` field is automatically set from the authenticated user.
 #[derive(Debug, Deserialize)]
 pub struct UpdateContactRequest {
   pub code: Option<String>,
@@ -51,12 +52,11 @@ pub struct UpdateContactRequest {
   pub contact_type: Option<String>,
   pub address: Option<String>,
   pub is_active: Option<bool>,
-  pub updated_by: Option<Uuid>,
 }
 
 /// Represents the data structure for a contact response.
 /// This struct defines the public-facing representation of a contact,
-/// omitting sensitive or internal fields.
+/// including ownership and audit information.
 #[derive(Debug, Serialize)]
 pub struct ContactResponse {
   pub id: Uuid,
@@ -67,6 +67,8 @@ pub struct ContactResponse {
   pub contact_type: String,
   pub address: Option<String>,
   pub is_active: bool,
+  pub created_by: Option<Uuid>,
+  pub updated_by: Option<Uuid>,
   pub created_at: DateTime<Utc>,
   pub updated_at: DateTime<Utc>,
 }
@@ -85,6 +87,8 @@ impl From<Contact> for ContactResponse {
       contact_type: contact.contact_type,
       address: contact.address,
       is_active: contact.is_active,
+      created_by: contact.created_by,
+      updated_by: contact.updated_by,
       created_at: contact.created_at,
       updated_at: contact.updated_at,
     }
