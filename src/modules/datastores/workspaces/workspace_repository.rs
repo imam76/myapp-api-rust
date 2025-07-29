@@ -10,6 +10,7 @@ use uuid::Uuid;
 pub trait WorkspaceRepository: Send + Sync {
   // Workspace CRUD operations
   async fn create_workspace(&self, request: &CreateWorkspaceRequest, owner_id: Uuid) -> Result<Workspace, AppError>;
+  async fn create_and_assign_owner(&self, payload: CreateWorkspaceRequest, owner_id: Uuid) -> Result<Workspace, AppError>;
   async fn get_workspace_by_id(&self, workspace_id: Uuid) -> Result<Option<Workspace>, AppError>;
   async fn update_workspace(&self, workspace_id: Uuid, request: &UpdateWorkspaceRequest) -> Result<Workspace, AppError>;
   async fn delete_workspace(&self, workspace_id: Uuid) -> Result<(), AppError>;
@@ -40,6 +41,42 @@ impl PostgresWorkspaceRepository {
 
 #[async_trait]
 impl WorkspaceRepository for PostgresWorkspaceRepository {
+  async fn create_and_assign_owner(&self, payload: CreateWorkspaceRequest, owner_id: Uuid) -> Result<Workspace, AppError> {
+    let mut tx = self.pool.begin().await?;
+
+    // Step 1: Create the workspace
+    let workspace = sqlx::query_as!(
+      Workspace,
+      r#"
+        INSERT INTO workspaces (name, description, owner_id)
+        VALUES ($1, $2, $3)
+        RETURNING *
+        "#,
+      payload.name,
+      payload.description,
+      owner_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    // Step 2: Add the owner to workspace_users table with 'Admin' role
+    sqlx::query!(
+      r#"
+        INSERT INTO workspace_users (workspace_id, user_id, role)
+        VALUES ($1, $2, $3)
+        "#,
+      workspace.id,
+      owner_id,
+      WorkspaceRole::Admin as WorkspaceRole
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(workspace)
+  }
+
   async fn create_workspace(&self, request: &CreateWorkspaceRequest, owner_id: Uuid) -> Result<Workspace, AppError> {
     let workspace_id = Uuid::new_v4();
 

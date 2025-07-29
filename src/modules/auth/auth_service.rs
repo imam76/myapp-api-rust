@@ -14,6 +14,7 @@ use crate::{
     user_dto::{LoginUserDto, RegisterUserDto},
     user_model::User,
   },
+  modules::datastores::workspaces::workspace_models::CreateWorkspaceRequest,
   state::AppState,
 };
 
@@ -35,7 +36,22 @@ pub async fn register_user(state: Arc<AppState>, user_data: RegisterUserDto) -> 
   let argon2 = Argon2::default();
   let password_hash = argon2.hash_password(user_data.password.as_bytes(), &salt)?.to_string();
 
-  state.auth_repository.create_user(&user_data, &password_hash).await
+  let user = state.auth_repository.create_user(&user_data, &password_hash).await?;
+
+  // Automatically create a personal workspace for the new user
+  let workspace_payload = CreateWorkspaceRequest {
+    name: format!("{}'s Personal Workspace", user.username),
+    description: Some("Default personal workspace.".to_string()),
+  };
+
+  if let Err(e) = state.workspace_repository.create_and_assign_owner(workspace_payload, user.id).await {
+    tracing::error!("Failed to create default workspace for user {}: {}", user.id, e);
+    // Here you might want to handle the case where user is created but workspace is not.
+    // For now, we just log the error. A more robust solution could involve a transaction
+    // that spans both user and workspace creation, or a cleanup job.
+  }
+
+  Ok(user)
 }
 
 pub async fn login_user(state: Arc<AppState>, login_data: LoginUserDto) -> Result<String, AppError> {
