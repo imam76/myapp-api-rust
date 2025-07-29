@@ -102,6 +102,7 @@ pub async fn setup_state() -> AppState {
 ///
 /// This function will panic if it fails to bind the TCP listener or start the server.
 pub async fn run() {
+  dotenvy::dotenv().ok();
   tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
   let port = std::env::var("PORT").unwrap_or_else(|_| "8000".to_string());
