@@ -19,6 +19,7 @@ use tracing::{Level, info};
 use crate::modules::auth::auth_repository::AuthRepositoryImpl;
 use crate::modules::auth::jwt_middleware::jwt_middleware;
 use crate::modules::datastores::contacts::contact_repository::SqlxContactRepository;
+use crate::modules::datastores::workspaces::workspace_repository::PostgresWorkspaceRepository;
 
 pub mod errors;
 pub mod modules;
@@ -57,6 +58,7 @@ pub fn app(app_state: Arc<AppState>) -> Router {
   let private_routes = Router::new()
     .nest("/api/v1/auth", protected_auth_routes)
     .nest("/api/v1/contacts", modules::datastores::contacts::contact_routes::router())
+    .nest("/api/v1", modules::datastores::workspaces::workspace_routes::workspace_routes())
     .layer(middleware::from_fn_with_state(app_state.clone(), jwt_middleware));
 
   Router::new()
@@ -95,7 +97,8 @@ pub async fn setup_state() -> Arc<AppState> {
   Arc::new(AppState {
     db: db_pool.clone(),
     contact_repository: Arc::new(SqlxContactRepository::new(db_pool.clone())),
-    auth_repository: Arc::new(AuthRepositoryImpl::new(db_pool)),
+    auth_repository: Arc::new(AuthRepositoryImpl::new(db_pool.clone())),
+    workspace_repository: Arc::new(PostgresWorkspaceRepository::new(db_pool)),
     jwt_secret,
   })
 }

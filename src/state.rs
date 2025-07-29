@@ -1,5 +1,6 @@
 use crate::modules::auth::auth_repository::AuthRepository;
 use crate::modules::datastores::contacts::contact_repository::ContactRepository;
+use crate::modules::datastores::workspaces::workspace_repository::WorkspaceRepository;
 use sqlx::PgPool;
 use std::sync::Arc;
 
@@ -21,5 +22,6 @@ pub struct AppState {
   pub db: PgPool,
   pub contact_repository: Arc<dyn ContactRepository + Send + Sync>,
   pub auth_repository: Arc<dyn AuthRepository + Send + Sync>,
+  pub workspace_repository: Arc<dyn WorkspaceRepository + Send + Sync>,
   pub jwt_secret: String,
 }
