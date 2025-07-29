@@ -26,18 +26,18 @@ pub struct Contact {
 /// This struct uses `validator` to enforce declarative validation rules on the incoming data.
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateContactRequest {
-    #[validate(length(min = 1, message = "Code is required"))]
-    pub code: String,
-    #[validate(length(min = 1, message = "Name is required"))]
-    pub name: String,
-    #[validate(email(message = "Invalid email format"))]
-    pub email: String,
-    #[validate(length(min = 1, message = "Position is required"))]
-    pub position: String,
-    #[validate(length(min = 1, message = "Contact type is required"))]
-    pub contact_type: String,
-    pub address: Option<String>,
-    pub created_by: Option<Uuid>,
+  #[validate(length(min = 1, message = "Code is required"))]
+  pub code: String,
+  #[validate(length(min = 1, message = "Name is required"))]
+  pub name: String,
+  #[validate(email(message = "Invalid email format"))]
+  pub email: String,
+  #[validate(length(min = 1, message = "Position is required"))]
+  pub position: String,
+  #[validate(length(min = 1, message = "Contact type is required"))]
+  pub contact_type: String,
+  pub address: Option<String>,
+  pub created_by: Option<Uuid>,
 }
 
 /// Represents the payload for updating an existing contact.

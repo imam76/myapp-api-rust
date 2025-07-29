@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
   Router,
   routing::{delete, get, post, put},
@@ -5,7 +7,7 @@ use axum::{
 
 use crate::{AppState, modules::datastores::contacts::contact_handlers};
 
-pub fn router() -> Router<AppState> {
+pub fn router() -> Router<Arc<AppState>> {
   Router::new()
     .route("/", get(contact_handlers::get_list))
     .route("/", post(contact_handlers::create))

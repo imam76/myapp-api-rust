@@ -16,6 +16,7 @@ use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
 use tracing::{Level, info};
 
+use crate::modules::auth::auth_repository::AuthRepositoryImpl;
 use crate::modules::datastores::contacts::contact_repository::SqlxContactRepository;
 
 pub mod errors;
@@ -44,18 +45,28 @@ pub type AppResult<T> = Result<T, AppError>;
 /// # Returns
 ///
 /// * `Router` - The configured Axum router, ready to be served.
-pub fn app(app_state: AppState) -> Router {
-  let public_routes = Router::new().route("/", get(|| async { "🚀 Welcome to the My Rust Base API!" }));
+pub fn app(app_state: Arc<AppState>) -> Router {
+    let auth_routes = modules::auth::auth_routes::auth_routes();
 
-  let private_routes = Router::new()
-    // Add your private routes here, e.g.:
-    .nest("/api/v1/contacts", modules::datastores::contacts::contact_routes::router());
+    let public_routes = Router::new()
+        .route(
+            "/",
+            get(|| async { "🚀 Welcome to the My Rust Base API!" }),
+        )
+        .nest("/api/v1/auth", auth_routes);
 
-  Router::new()
-    .merge(public_routes) // Public routes without auth
-    .merge(private_routes) // Private routes with auth
-    .with_state(app_state)
-    .fallback(modules::method_not_allowed_handler::fallback)
+    let private_routes = Router::new()
+        // Add your private routes here, e.g.:
+        .nest(
+            "/api/v1/contacts",
+            modules::datastores::contacts::contact_routes::router(),
+        );
+
+    Router::new()
+        .merge(public_routes) // Public routes without auth
+        .merge(private_routes) // Private routes with auth
+        .with_state(app_state)
+        .fallback(modules::method_not_allowed_handler::fallback)
 }
 
 /// Initializes the shared `AppState`.
@@ -71,22 +82,25 @@ pub fn app(app_state: AppState) -> Router {
 /// This function will panic if:
 /// - The `DATABASE_URL` environment variable is not set.
 /// - It fails to connect to the database.
-pub async fn setup_state() -> AppState {
-  dotenvy::dotenv().ok();
-  let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+pub async fn setup_state() -> Arc<AppState> {
+    dotenvy::dotenv().ok();
+    let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
 
-  let db_pool = PgPoolOptions::new()
-    .max_connections(10)
-    .min_connections(1)
-    .connect(&db_url)
-    .await
-    .expect("Failed to connect to the database");
-  info!("✅ Connected to database {}", db_url);
+    let db_pool = PgPoolOptions::new()
+        .max_connections(10)
+        .min_connections(1)
+        .connect(&db_url)
+        .await
+        .expect("Failed to connect to the database");
+    info!("✅ Connected to database {}", db_url);
 
-  AppState {
-    db: db_pool.clone(),
-    contact_repository: Arc::new(SqlxContactRepository::new(db_pool)),
-  }
+    Arc::new(AppState {
+        db: db_pool.clone(),
+        contact_repository: Arc::new(SqlxContactRepository::new(db_pool.clone())),
+        auth_repository: Arc::new(AuthRepositoryImpl::new(db_pool)),
+        jwt_secret,
+    })
 }
 
 /// The main entry point for running the application server.
@@ -102,18 +116,24 @@ pub async fn setup_state() -> AppState {
 ///
 /// This function will panic if it fails to bind the TCP listener or start the server.
 pub async fn run() {
-  dotenvy::dotenv().ok();
-  tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    dotenvy::dotenv().ok();
+    tracing_subscriber::fmt()
+        .with_max_level(Level::INFO)
+        .init();
 
-  let port = std::env::var("PORT").unwrap_or_else(|_| "8000".to_string());
-  let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-  let addr = format!("{}:{}", host, port);
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8000".to_string());
+    let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let addr = format!("{}:{}", host, port);
 
-  let app_state = setup_state().await;
-  let app = app(app_state);
+    let app_state = setup_state().await;
+    let app = app(app_state);
 
-  let listener = tokio::net::TcpListener::bind(&addr).await.expect("Failed to bind to address");
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .expect("Failed to bind to address");
 
-  info!("🚀 Server running on http://{}", &addr);
-  axum::serve(listener, app).await.expect("Failed to start server");
+    info!("🚀 Server running on http://{}", &addr);
+    axum::serve(listener, app)
+        .await
+        .expect("Failed to start server");
 }

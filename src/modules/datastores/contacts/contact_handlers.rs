@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
   AppResult, AppState,
   errors::{AppError, NotFoundError},
@@ -27,7 +29,7 @@ const MAX_LIMIT: u32 = 100;
 /// A `Json` response containing a paginated list of `ContactResponse` objects.
 #[axum::debug_handler]
 pub async fn get_list(
-  State(state): State<AppState>,
+  State(state): State<Arc<AppState>>,
   Query(params): Query<GetContactsQuery>,
 ) -> AppResult<Json<ApiResponse<PaginatedResponse<ContactResponse>>>> {
   let repository = &state.contact_repository;
@@ -69,7 +71,7 @@ pub async fn get_list(
 /// A `Json` response containing the newly created `ContactResponse`.
 #[axum::debug_handler]
 pub async fn create(
-  State(state): State<AppState>,
+  State(state): State<Arc<AppState>>,
   payload: Result<Json<CreateContactRequest>, JsonRejection>,
 ) -> AppResult<Json<ApiResponse<ContactResponse>>> {
   let repository = &state.contact_repository;
@@ -105,7 +107,7 @@ pub async fn create(
 ///
 /// A `Json` response containing the `ContactResponse` if found, otherwise a 404 Not Found error.
 #[axum::debug_handler]
-pub async fn get_by_id(State(state): State<AppState>, Path(id): Path<Uuid>) -> AppResult<Json<ApiResponse<ContactResponse>>> {
+pub async fn get_by_id(State(state): State<Arc<AppState>>, Path(id): Path<Uuid>) -> AppResult<Json<ApiResponse<ContactResponse>>> {
   let repository = &state.contact_repository;
 
   tracing::debug!("Fetching contact with ID: {}", id);
@@ -136,7 +138,7 @@ pub async fn get_by_id(State(state): State<AppState>, Path(id): Path<Uuid>) -> A
 /// A `Json` response containing the updated `ContactResponse` if successful, otherwise a 404 error.
 #[axum::debug_handler]
 pub async fn update(
-  State(state): State<AppState>,
+  State(state): State<Arc<AppState>>,
   Path(id): Path<Uuid>,
   payload: Result<Json<UpdateContactRequest>, JsonRejection>,
 ) -> AppResult<Json<ApiResponse<ContactResponse>>> {
@@ -169,7 +171,7 @@ pub async fn update(
 ///
 /// A `Json` response with a success message if the deletion was successful, otherwise a 404 error.
 #[axum::debug_handler]
-pub async fn delete(State(state): State<AppState>, Path(id): Path<Uuid>) -> AppResult<Json<ApiResponse<()>>> {
+pub async fn delete(State(state): State<Arc<AppState>>, Path(id): Path<Uuid>) -> AppResult<Json<ApiResponse<()>>> {
   let repository = &state.contact_repository;
 
   tracing::debug!("Deleting contact with ID: {}", id);
