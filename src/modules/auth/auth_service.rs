@@ -54,7 +54,7 @@ pub async fn register_user(state: Arc<AppState>, user_data: RegisterUserDto) -> 
   Ok(user)
 }
 
-pub async fn login_user(state: Arc<AppState>, login_data: LoginUserDto) -> Result<String, AppError> {
+pub async fn login_user(state: Arc<AppState>, login_data: LoginUserDto) -> Result<(String, User), AppError> {
   login_data.validate()?;
 
   let user = state
@@ -79,5 +79,5 @@ pub async fn login_user(state: Arc<AppState>, login_data: LoginUserDto) -> Resul
 
   let token = encode(&Header::default(), &claims, &EncodingKey::from_secret(state.jwt_secret.as_ref()))?;
 
-  Ok(token)
+  Ok((token, user))
 }

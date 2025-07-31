@@ -26,8 +26,8 @@ pub async fn login_user_handler(
     State(state): State<Arc<AppState>>,
     Json(body): Json<LoginUserDto>,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
-    let token = login_user(state, body).await?;
-    let token_response = json!({"status": "success", "token": token});
+    let (token, user) = login_user(state, body).await?;
+    let token_response = json!({"status": "success", "token": token, "user": user});
     Ok((StatusCode::OK, Json(token_response)))
 }
 

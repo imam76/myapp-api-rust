@@ -21,11 +21,3 @@ pub fn public_auth_routes() -> Router<Arc<AppState>> {
 pub fn protected_auth_routes() -> Router<Arc<AppState>> {
   Router::new().route("/me", get(get_current_user_handler))
 }
-
-/// Returns all authentication routes (for backward compatibility)
-pub fn auth_routes() -> Router<Arc<AppState>> {
-  Router::new()
-    .route("/register", post(register_user_handler))
-    .route("/login", post(login_user_handler))
-    .route("/me", get(get_current_user_handler)) // Protected route
-}
