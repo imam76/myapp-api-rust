@@ -119,7 +119,7 @@ pub async fn run() {
   dotenvy::dotenv().ok();
   tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
-  let port = std::env::var("PORT").unwrap_or_else(|_| "8000".to_string());
+  let port = std::env::var("PORT").unwrap_or_else(|_| "5001".to_string());
   let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
   let addr = format!("{}:{}", host, port);
 

@@ -1,2 +1,38 @@
 /target
+
+# Environment files
 .env
+.env.local
+.env.production
+.env.development
+.env.test
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Fly.io
+.fly/
+
+# Backup files
+*.bak
+*~
+
+# Archives
+*.zip
+*.tar.gz

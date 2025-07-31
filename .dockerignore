@@ -3,3 +3,7 @@ fly.toml
 target/
 test/
 example/
+.vscode/
+.env
+.env.example
+*.md
