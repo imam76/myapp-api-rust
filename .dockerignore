@@ -1,2 +1,5 @@
 fly.toml
 .git/
+target/
+test/
+example/
