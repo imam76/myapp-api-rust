@@ -1,0 +1,195 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE products \n        SET \n          code = COALESCE($1, code),\n          name = COALESCE($2, name),\n          category_id = COALESCE($3, category_id),\n          base_unit = COALESCE($4, base_unit),\n          unit_on_report_preview = COALESCE($5, unit_on_report_preview),\n          selling_price = COALESCE($6, selling_price),\n          unit_cost = COALESCE($7, unit_cost),\n          supplier_id = COALESCE($8, supplier_id),\n          track_inventory = COALESCE($9, track_inventory),\n          description = COALESCE($10, description),\n          sku = COALESCE($11, sku),\n          barcode = COALESCE($12, barcode),\n          minimum_stock = COALESCE($13, minimum_stock),\n          maximum_stock = COALESCE($14, maximum_stock),\n          reorder_level = COALESCE($15, reorder_level),\n          current_stock = COALESCE($16, current_stock),\n          tax_type = COALESCE($17, tax_type),\n          tax_rate = COALESCE($18, tax_rate),\n          tax_amount = COALESCE($19, tax_amount),\n          is_active = COALESCE($20, is_active),\n          workspace_id = COALESCE($21, workspace_id),\n          updated_by = $22,\n          updated_at = NOW()\n        WHERE id = $23 AND created_by = $24\n        RETURNING \n          id, code, name, category_id, base_unit, unit_on_report_preview,\n          selling_price, unit_cost, supplier_id, track_inventory,\n          description, sku, barcode, minimum_stock, maximum_stock,\n          reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n          is_active, workspace_id, created_by, updated_by, created_at, updated_at\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "category_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "base_unit",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "unit_on_report_preview",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "selling_price",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 7,
+        "name": "unit_cost",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 8,
+        "name": "supplier_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 9,
+        "name": "track_inventory",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 10,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "sku",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 12,
+        "name": "barcode",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 13,
+        "name": "minimum_stock",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 14,
+        "name": "maximum_stock",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 15,
+        "name": "reorder_level",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 16,
+        "name": "current_stock",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 17,
+        "name": "tax_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 18,
+        "name": "tax_rate",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 19,
+        "name": "tax_amount",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 20,
+        "name": "is_active",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 21,
+        "name": "workspace_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 22,
+        "name": "created_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 23,
+        "name": "updated_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 24,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 25,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Varchar",
+        "Uuid",
+        "Varchar",
+        "Varchar",
+        "Numeric",
+        "Numeric",
+        "Uuid",
+        "Bool",
+        "Text",
+        "Varchar",
+        "Varchar",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Varchar",
+        "Numeric",
+        "Numeric",
+        "Bool",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "0636ca70c5cac4c1b432e0479d9305b3cc479cfb4abb1c429b4b627a77787168"
+}

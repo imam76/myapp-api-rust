@@ -1,4 +1,4 @@
-name: Rust
+name: Rust CI/CD
 
 on:
   push:
@@ -11,13 +11,100 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: myapp_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
 
     steps:
     - uses: actions/checkout@v4
-    - name: Check
+    
+    - name: Cache cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+    
+    - name: Install SQLx CLI
+      run: cargo install sqlx-cli --features postgres --locked
+    
+    - name: Set up database
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: |
+        sqlx database create
+        sqlx migrate run
+    
+    - name: Check (with database)
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
       run: cargo check
-    - name: Build
-      run: cargo build --verbose
+      
+    - name: Build (with database)
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: cargo build --verbose --release
+      
+    - name: Test (with database)
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: cargo test --verbose
+
+  build-offline:
+    runs-on: ubuntu-latest
+    if: failure()
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Cache cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-offline-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-offline-
+    
+    - name: Build (offline mode - using SQLx cache)
+      env:
+        SQLX_OFFLINE: true
+      run: cargo build --verbose --release
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Fly.io CLI
+      run: |
+        curl -L https://fly.io/install.sh | sh
+        echo "$HOME/.fly/bin" >> $GITHUB_PATH
+      
+    - name: Deploy to Fly.io
+      run: flyctl deploy --remote-only
+      env:
+        FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
