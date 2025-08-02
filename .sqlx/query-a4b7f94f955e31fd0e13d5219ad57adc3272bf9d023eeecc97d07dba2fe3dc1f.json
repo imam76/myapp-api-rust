@@ -1,0 +1,69 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT w.id, w.name, w.description, w.owner_id, w.created_at, w.updated_at,\n                   wu.role as \"role!: WorkspaceRole\"\n            FROM workspaces w\n            JOIN workspace_users wu ON w.id = wu.workspace_id\n            WHERE wu.user_id = $1\n            ORDER BY w.name\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "owner_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "role!: WorkspaceRole",
+        "type_info": {
+          "Custom": {
+            "name": "workspace_role",
+            "kind": {
+              "Enum": [
+                "admin",
+                "member",
+                "viewer"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a4b7f94f955e31fd0e13d5219ad57adc3272bf9d023eeecc97d07dba2fe3dc1f"
+}

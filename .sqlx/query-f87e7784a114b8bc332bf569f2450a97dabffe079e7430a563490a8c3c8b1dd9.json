@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM products \n        WHERE id = $1 \n          AND EXISTS (\n            SELECT 1 FROM workspaces w\n            WHERE w.id = $2\n          )\n      ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f87e7784a114b8bc332bf569f2450a97dabffe079e7430a563490a8c3c8b1dd9"
+}
