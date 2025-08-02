@@ -28,32 +28,6 @@ pub struct PaginationMeta {
   pub has_prev: bool,
 }
 
-/// Query parameters for paginated requests
-#[derive(Debug, serde::Deserialize)]
-pub struct GetContactsQuery {
-  pub page: Option<u32>,
-  pub limit: Option<u32>,
-  pub search: Option<String>,
-  pub contact_type: Option<String>,
-  pub is_active: Option<bool>,
-}
-
-// Constants untuk consistency dengan handler
-const DEFAULT_PAGE: u32 = 1;
-const DEFAULT_LIMIT: u32 = 10;
-
-impl Default for GetContactsQuery {
-  fn default() -> Self {
-    Self {
-      page: Some(DEFAULT_PAGE),
-      limit: Some(DEFAULT_LIMIT),
-      search: None,
-      contact_type: None,
-      is_active: None,
-    }
-  }
-}
-
 /// Helper functions for creating responses
 impl<T> ApiResponse<T> {
   pub fn success(data: T, message: &str) -> Self {

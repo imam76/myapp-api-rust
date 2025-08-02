@@ -10,11 +10,13 @@ use validator::Validate;
 
 use crate::{
   errors::{AppError, AuthError},
-  modules::auth::{
-    user_dto::{LoginUserDto, RegisterUserDto},
-    user_model::User,
+  modules::{
+    auth::{
+      user_dto::{LoginUserDto, RegisterUserDto},
+      user_model::User,
+    },
+    datastores::workspaces::{Workspace, workspace_models::CreateWorkspaceRequest},
   },
-  modules::datastores::workspaces::workspace_models::CreateWorkspaceRequest,
   state::AppState,
 };
 
@@ -25,7 +27,7 @@ pub struct Claims {
   pub iat: usize,
 }
 
-pub async fn register_user(state: Arc<AppState>, user_data: RegisterUserDto) -> Result<User, AppError> {
+pub async fn register_user(state: Arc<AppState>, user_data: RegisterUserDto) -> Result<(User, Workspace), AppError> {
   user_data.validate()?;
 
   if state.auth_repository.find_by_email(&user_data.email).await?.is_some() {
@@ -44,14 +46,9 @@ pub async fn register_user(state: Arc<AppState>, user_data: RegisterUserDto) -> 
     description: Some("Default personal workspace.".to_string()),
   };
 
-  if let Err(e) = state.workspace_repository.create_and_assign_owner(workspace_payload, user.id).await {
-    tracing::error!("Failed to create default workspace for user {}: {}", user.id, e);
-    // Here you might want to handle the case where user is created but workspace is not.
-    // For now, we just log the error. A more robust solution could involve a transaction
-    // that spans both user and workspace creation, or a cleanup job.
-  }
+  let workspace = state.workspace_repository.create_and_assign_owner(workspace_payload, user.id).await?;
 
-  Ok(user)
+  Ok((user, workspace))
 }
 
 pub async fn login_user(state: Arc<AppState>, login_data: LoginUserDto) -> Result<(String, User), AppError> {

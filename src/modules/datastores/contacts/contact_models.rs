@@ -16,6 +16,8 @@ pub struct Contact {
   pub contact_type: String, // Using contact_type to avoid Rust keyword conflict
   pub address: Option<String>,
   pub is_active: bool,
+
+  // Metadata
   pub workspace_id: Option<Uuid>,
   pub created_by: Option<Uuid>,
   pub updated_by: Option<Uuid>,
@@ -39,6 +41,8 @@ pub struct CreateContactRequest {
   #[validate(length(min = 1, message = "Contact type is required"))]
   pub contact_type: String,
   pub address: Option<String>,
+
+  //Metadata
   pub workspace_id: Option<Uuid>,
 }
 
@@ -54,6 +58,8 @@ pub struct UpdateContactRequest {
   pub contact_type: Option<String>,
   pub address: Option<String>,
   pub is_active: Option<bool>,
+
+  // Metadata
   pub workspace_id: Option<Uuid>,
 }
 
@@ -70,6 +76,8 @@ pub struct ContactResponse {
   pub contact_type: String,
   pub address: Option<String>,
   pub is_active: bool,
+
+  // Metadata
   pub workspace_id: Option<Uuid>,
   pub created_by: Option<Uuid>,
   pub updated_by: Option<Uuid>,
@@ -91,11 +99,39 @@ impl From<Contact> for ContactResponse {
       contact_type: contact.contact_type,
       address: contact.address,
       is_active: contact.is_active,
+
+      // Metadata
       workspace_id: contact.workspace_id,
       created_by: contact.created_by,
       updated_by: contact.updated_by,
       created_at: contact.created_at,
       updated_at: contact.updated_at,
+    }
+  }
+}
+
+/// Query parameters for paginated requests
+#[derive(Debug, serde::Deserialize)]
+pub struct GetContactsQuery {
+  pub page: Option<u32>,
+  pub limit: Option<u32>,
+  pub search: Option<String>,
+  pub contact_type: Option<String>,
+  pub is_active: Option<bool>,
+}
+
+// Constants untuk consistency dengan handler
+const DEFAULT_PAGE: u32 = 1;
+const DEFAULT_LIMIT: u32 = 10;
+
+impl Default for GetContactsQuery {
+  fn default() -> Self {
+    Self {
+      page: Some(DEFAULT_PAGE),
+      limit: Some(DEFAULT_LIMIT),
+      search: None,
+      contact_type: None,
+      is_active: None,
     }
   }
 }

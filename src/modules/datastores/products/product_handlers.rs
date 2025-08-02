@@ -6,7 +6,7 @@ use crate::{
   modules::{
     auth::current_user::CurrentUser,
     datastores::{
-      contacts::contact_models::{ContactResponse, CreateContactRequest, GetContactsQuery, UpdateContactRequest},
+      products::product_models::{CreateProductRequest, GetProductsQuery, ProductResponse, UpdateProductRequest},
       workspaces::workspace_models::WorkspaceRole,
     },
   },
@@ -46,8 +46,8 @@ async fn check_workspace_permission(
   }
 }
 
-/// Handles the request to retrieve a paginated list of contacts for the authenticated user.
-/// This handler will get contacts from the user's default workspace or all accessible workspaces.
+/// Handles the request to retrieve a paginated list of products for the authenticated user.
+/// This handler will get products from the user's default workspace or all accessible workspaces.
 ///
 /// # Arguments
 ///
@@ -57,14 +57,14 @@ async fn check_workspace_permission(
 ///
 /// # Returns
 ///
-/// A `Json` response containing a paginated list of `ContactResponse` objects that belong to the user.
+/// A `Json` response containing a paginated list of `ProductResponse` objects that belong to the user.
 #[axum::debug_handler]
 pub async fn get_list(
   State(state): State<Arc<AppState>>,
-  Query(params): Query<GetContactsQuery>,
+  Query(params): Query<GetProductsQuery>,
   current_user: CurrentUser,
-) -> AppResult<Json<ApiResponse<PaginatedResponse<ContactResponse>>>> {
-  let repository = &state.contact_repository;
+) -> AppResult<Json<ApiResponse<PaginatedResponse<ProductResponse>>>> {
+  let repository = &state.product_repository;
 
   let page = params.page.unwrap_or(DEFAULT_PAGE);
   let mut limit = params.limit.unwrap_or(DEFAULT_LIMIT);
@@ -73,56 +73,56 @@ pub async fn get_list(
     limit = MAX_LIMIT;
   }
 
-  tracing::debug!("Fetching contacts for user {}: page={}, limit={}", current_user.user_id, page, limit);
+  tracing::debug!("Fetching products for user {}: page={}, limit={}", current_user.user_id, page, limit);
 
-  let (contacts, total) = repository.find_all_by_user_paginated(current_user.user_id, page, limit).await?;
+  let (products, total) = repository.find_all_by_user_paginated(current_user.user_id, page, limit).await?;
   let pagination = PaginationMeta::new(page, limit, total);
 
-  tracing::debug!("Retrieved {} contacts for user {}", contacts.len(), current_user.user_id);
+  tracing::debug!("Retrieved {} products for user {}", products.len(), current_user.user_id);
 
   let response = ApiResponse::success(
     PaginatedResponse {
-      list: contacts.into_iter().map(ContactResponse::from).collect(),
+      list: products.into_iter().map(ProductResponse::from).collect(),
       pagination,
     },
-    "Contacts retrieved successfully",
+    "Products retrieved successfully",
   );
 
   Ok(Json(response))
 }
 
-/// Handles the request to create a new contact for the authenticated user.
-/// The contact will be created in the specified workspace or user's default workspace.
+/// Handles the request to create a new products for the authenticated user.
+/// The products will be created in the specified workspace or user's default workspace.
 ///
 /// # Arguments
 ///
 /// * `State(state)`: The shared application state.
 /// * `current_user`: The authenticated user extracted from the JWT token.
-/// * `payload`: The JSON payload containing the new contact's data.
+/// * `payload`: The JSON payload containing the new products's data.
 ///
 /// # Returns
 ///
-/// A `Json` response containing the newly created `ContactResponse`.
+/// A `Json` response containing the newly created `ProductResponse`.
 #[axum::debug_handler]
 pub async fn create(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
-  payload: Result<Json<CreateContactRequest>, JsonRejection>,
-) -> AppResult<(StatusCode, Json<ApiResponse<ContactResponse>>)> {
-  let repository = &state.contact_repository;
+  payload: Result<Json<CreateProductRequest>, JsonRejection>,
+) -> AppResult<(StatusCode, Json<ApiResponse<ProductResponse>>)> {
+  let repository = &state.product_repository;
 
   // Extract and validate the payload
   let Json(payload) = payload?;
   payload.validate()?;
 
-  tracing::debug!("Creating contact with code: {} for user: {}", payload.code, current_user.user_id);
+  tracing::debug!("Creating products with code: {} for user: {}", payload.code, current_user.user_id);
 
   // Check if workspace_id is provided and validate access
   if let Some(workspace_id) = payload.workspace_id {
     let workspace_repository = &state.workspace_repository;
     if !check_workspace_permission(&workspace_repository, workspace_id, current_user.user_id, WorkspaceRole::Member).await? {
       return Err(AppError::Authorization(
-        "You don't have permission to create contacts in this workspace".to_string(),
+        "You don't have permission to create products in this workspace".to_string(),
       ));
     }
 
@@ -130,126 +130,126 @@ pub async fn create(
     if let Some(_) = repository.find_by_code_and_workspace(&payload.code, workspace_id).await? {
       return Err(AppError::validation_with_code(
         "code",
-        "Contact code already exists in this workspace",
+        "Product code already exists in this workspace",
         "DUPLICATE_CODE",
       ));
     }
   } else {
-    // Check if code already exists for this user (global check for user-level contacts)
+    // Check if code already exists for this user (global check for user-level products)
     if let Some(_) = repository.find_by_code(&payload.code).await? {
-      return Err(AppError::validation_with_code("code", "Contact code already exists", "DUPLICATE_CODE"));
+      return Err(AppError::validation_with_code("code", "Product code already exists", "DUPLICATE_CODE"));
     }
   }
 
-  let contact = repository.create(payload, current_user.user_id).await?;
+  let products = repository.create(payload, current_user.user_id).await?;
 
-  tracing::info!("Contact created successfully with ID: {} for user: {}", contact.id, current_user.user_id);
+  tracing::info!("Product created successfully with ID: {} for user: {}", products.id, current_user.user_id);
 
-  let response = ApiResponse::success(ContactResponse::from(contact), "Contact created successfully");
+  let response = ApiResponse::success(ProductResponse::from(products), "Product created successfully");
 
   Ok((StatusCode::CREATED, Json(response)))
 }
 
-/// Handles the request to retrieve a single contact by its ID for the authenticated user.
+/// Handles the request to retrieve a single products by its ID for the authenticated user.
 ///
 /// # Arguments
 ///
 /// * `State(state)`: The shared application state.
-/// * `Path(id)`: The ID of the contact to retrieve, extracted from the URL path.
+/// * `Path(id)`: The ID of the products to retrieve, extracted from the URL path.
 /// * `current_user`: The authenticated user extracted from the JWT token.
 ///
 /// # Returns
 ///
-/// A `Json` response containing the `ContactResponse` if found and accessible by the user, otherwise a 404 Not Found error.
+/// A `Json` response containing the `ProductResponse` if found and accessible by the user, otherwise a 404 Not Found error.
 #[axum::debug_handler]
 pub async fn get_by_id(
   State(state): State<Arc<AppState>>,
   Path(id): Path<Uuid>,
   current_user: CurrentUser,
-) -> AppResult<Json<ApiResponse<ContactResponse>>> {
-  let repository = &state.contact_repository;
+) -> AppResult<Json<ApiResponse<ProductResponse>>> {
+  let repository = &state.product_repository;
 
-  tracing::debug!("Fetching contact with ID: {} for user: {}", id, current_user.user_id);
+  tracing::debug!("Fetching products with ID: {} for user: {}", id, current_user.user_id);
 
-  let contact = repository.find_by_id_and_user(id, current_user.user_id).await?.ok_or_else(|| {
+  let products = repository.find_by_id_and_user(id, current_user.user_id).await?.ok_or_else(|| {
     AppError::NotFound(NotFoundError {
-      resource: "Contact".to_string(),
+      resource: "Product".to_string(),
       id: Some(id),
     })
   })?;
 
-  tracing::debug!("Contact with ID {} found for user {}", id, current_user.user_id);
+  tracing::debug!("Product with ID {} found for user {}", id, current_user.user_id);
 
-  let response = ApiResponse::success(ContactResponse::from(contact), "Contact retrieved successfully");
+  let response = ApiResponse::success(ProductResponse::from(products), "Product retrieved successfully");
   Ok(Json(response))
 }
 
-/// Handles the request to update an existing contact for the authenticated user.
+/// Handles the request to update an existing products for the authenticated user.
 ///
 /// # Arguments
 ///
 /// * `State(state)`: The shared application state.
-/// * `Path(id)`: The ID of the contact to update.
+/// * `Path(id)`: The ID of the products to update.
 /// * `current_user`: The authenticated user extracted from the JWT token.
 /// * `payload`: The JSON payload with the fields to update.
 ///
 /// # Returns
 ///
-/// A `Json` response containing the updated `ContactResponse` if successful, otherwise a 404 error.
+/// A `Json` response containing the updated `ProductResponse` if successful, otherwise a 404 error.
 #[axum::debug_handler]
 pub async fn update(
   State(state): State<Arc<AppState>>,
   Path(id): Path<Uuid>,
   current_user: CurrentUser,
-  payload: Result<Json<UpdateContactRequest>, JsonRejection>,
-) -> AppResult<Json<ApiResponse<ContactResponse>>> {
-  let repository = &state.contact_repository;
+  payload: Result<Json<UpdateProductRequest>, JsonRejection>,
+) -> AppResult<Json<ApiResponse<ProductResponse>>> {
+  let repository = &state.product_repository;
   let Json(payload) = payload?;
 
-  tracing::debug!("Updating contact with ID: {} for user: {}", id, current_user.user_id);
+  tracing::debug!("Updating products with ID: {} for user: {}", id, current_user.user_id);
 
   // Check if workspace_id is provided and validate access
   if let Some(workspace_id) = payload.workspace_id {
     let workspace_repository = &state.workspace_repository;
     if !check_workspace_permission(&workspace_repository, workspace_id, current_user.user_id, WorkspaceRole::Member).await? {
       return Err(AppError::Authorization(
-        "You don't have permission to update contacts in this workspace".to_string(),
+        "You don't have permission to update products in this workspace".to_string(),
       ));
     }
 
-    let updated_contact = repository
+    let updated_products = repository
       .update_by_workspace(id, workspace_id, payload, current_user.user_id)
       .await?
       .ok_or_else(|| {
         AppError::NotFound(NotFoundError {
-          resource: "Contact".to_string(),
+          resource: "Product".to_string(),
           id: Some(id),
         })
       })?;
 
-    tracing::info!("Contact with ID {} updated successfully for workspace {}", id, workspace_id);
-    let response = ApiResponse::success(ContactResponse::from(updated_contact), "Contact updated successfully");
+    tracing::info!("Product with ID {} updated successfully for workspace {}", id, workspace_id);
+    let response = ApiResponse::success(ProductResponse::from(updated_products), "Product updated successfully");
     Ok(Json(response))
   } else {
-    let updated_contact = repository.update(id, payload, current_user.user_id).await?.ok_or_else(|| {
+    let updated_products = repository.update(id, payload, current_user.user_id).await?.ok_or_else(|| {
       AppError::NotFound(NotFoundError {
-        resource: "Contact".to_string(),
+        resource: "Product".to_string(),
         id: Some(id),
       })
     })?;
 
-    tracing::info!("Contact with ID {} updated successfully for user {}", id, current_user.user_id);
-    let response = ApiResponse::success(ContactResponse::from(updated_contact), "Contact updated successfully");
+    tracing::info!("Product with ID {} updated successfully for user {}", id, current_user.user_id);
+    let response = ApiResponse::success(ProductResponse::from(updated_products), "Product updated successfully");
     Ok(Json(response))
   }
 }
 
-/// Handles the request to delete a contact by its ID for the authenticated user.
+/// Handles the request to delete a products by its ID for the authenticated user.
 ///
 /// # Arguments
 ///
 /// * `State(state)`: The shared application state.
-/// * `Path(id)`: The ID of the contact to delete.
+/// * `Path(id)`: The ID of the products to delete.
 /// * `current_user`: The authenticated user extracted from the JWT token.
 ///
 /// # Returns
@@ -257,21 +257,21 @@ pub async fn update(
 /// A `Json` response with a success message if the deletion was successful, otherwise a 404 error.
 #[axum::debug_handler]
 pub async fn delete(State(state): State<Arc<AppState>>, Path(id): Path<Uuid>, current_user: CurrentUser) -> AppResult<Json<ApiResponse<()>>> {
-  let repository = &state.contact_repository;
+  let repository = &state.product_repository;
 
-  tracing::debug!("Deleting contact with ID: {} for user: {}", id, current_user.user_id);
+  tracing::debug!("Deleting products with ID: {} for user: {}", id, current_user.user_id);
 
   let deleted = repository.delete(id, current_user.user_id).await?;
 
   if !deleted {
     return Err(AppError::NotFound(NotFoundError {
-      resource: "Contact".to_string(),
+      resource: "Product".to_string(),
       id: Some(id),
     }));
   }
 
-  tracing::info!("Contact with ID {} deleted successfully for user {}", id, current_user.user_id);
+  tracing::info!("Product with ID {} deleted successfully for user {}", id, current_user.user_id);
 
-  let response = ApiResponse::success((), "Contact deleted successfully");
+  let response = ApiResponse::success((), "Product deleted successfully");
   Ok(Json(response))
 }
