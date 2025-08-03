@@ -6,7 +6,7 @@ use serde::Serialize;
 pub struct ApiResponse<T> {
   pub status: String,
   pub message: String,
-  pub data: Option<T>,
+  pub results: Option<T>,
   pub timestamp: DateTime<Utc>,
 }
 
@@ -34,7 +34,7 @@ impl<T> ApiResponse<T> {
     Self {
       status: "success".to_string(),
       message: message.to_string(),
-      data: Some(data),
+      results: Some(data),
       timestamp: Utc::now(),
     }
   }
@@ -43,7 +43,7 @@ impl<T> ApiResponse<T> {
     Self {
       status: "error".to_string(),
       message: message.to_string(),
-      data: None,
+      results: None,
       timestamp: Utc::now(),
     }
   }
@@ -58,7 +58,7 @@ impl<T> ApiResponse<T> {
     Self {
       status: "validation_error".to_string(),
       message: message.to_string(),
-      data: None,
+      results: None,
       timestamp: Utc::now(),
     }
   }
