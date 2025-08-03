@@ -11,6 +11,7 @@ pub trait AuthRepository: Send + Sync {
   async fn find_by_email(&self, email: &str) -> Result<Option<User>, AppError>;
   async fn find_by_id(&self, user_id: uuid::Uuid) -> Result<Option<User>, AppError>;
   async fn create_user(&self, user_data: &RegisterUserDto, hashed_password: &str) -> Result<User, AppError>;
+  async fn get_db_size(&self) -> Result<i64, AppError>;
 }
 
 pub struct AuthRepositoryImpl {
@@ -61,5 +62,12 @@ impl AuthRepository for AuthRepositoryImpl {
         .await?;
 
     Ok(user)
+  }
+  async fn get_db_size(&self) -> Result<i64, AppError> {
+    let size: i64 = sqlx::query_scalar("SELECT pg_database_size(current_database())")
+      .fetch_one(&self.pool)
+      .await?;
+
+    Ok(size)
   }
 }
