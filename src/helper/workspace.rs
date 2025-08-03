@@ -1,4 +1,10 @@
-use crate::errors::AppError;
+use std::sync::Arc;
+
+use crate::{
+  AppResult,
+  errors::AppError,
+  modules::datastores::workspaces::{WorkspaceRepository, WorkspaceRole},
+};
 use axum::{async_trait, extract::FromRequestParts, http::request::Parts};
 use uuid::Uuid;
 
@@ -23,5 +29,27 @@ where
     } else {
       Ok(WorkspaceContext(None))
     }
+  }
+}
+
+/// Helper function to check if user has required role or higher in workspace
+pub async fn check_workspace_permission(
+  workspace_repository: &Arc<dyn WorkspaceRepository + Send + Sync>,
+  workspace_id: Uuid,
+  user_id: Uuid,
+  required_role: WorkspaceRole,
+) -> AppResult<bool> {
+  let user_role = workspace_repository.check_user_workspace_access(user_id, workspace_id).await?;
+
+  match user_role {
+    Some(role) => {
+      let has_permission = match required_role {
+        WorkspaceRole::Viewer => matches!(role, WorkspaceRole::Viewer | WorkspaceRole::Member | WorkspaceRole::Admin),
+        WorkspaceRole::Member => matches!(role, WorkspaceRole::Member | WorkspaceRole::Admin),
+        WorkspaceRole::Admin => matches!(role, WorkspaceRole::Admin),
+      };
+      Ok(has_permission)
+    }
+    None => Ok(false),
   }
 }

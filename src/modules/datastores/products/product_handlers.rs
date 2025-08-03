@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::{
   AppResult, AppState,
   errors::{AppError, NotFoundError},
+  helper::workspace::check_workspace_permission,
   modules::{
     auth::current_user::CurrentUser,
     datastores::{
@@ -23,28 +24,6 @@ use validator::Validate;
 const DEFAULT_PAGE: u32 = 1;
 const DEFAULT_LIMIT: u32 = 10;
 const MAX_LIMIT: u32 = 100;
-
-/// Helper function to check if user has required role or higher in workspace
-async fn check_workspace_permission(
-  workspace_repository: &Arc<dyn crate::modules::datastores::workspaces::workspace_repository::WorkspaceRepository + Send + Sync>,
-  workspace_id: Uuid,
-  user_id: Uuid,
-  required_role: WorkspaceRole,
-) -> AppResult<bool> {
-  let user_role = workspace_repository.check_user_workspace_access(user_id, workspace_id).await?;
-
-  match user_role {
-    Some(role) => {
-      let has_permission = match required_role {
-        WorkspaceRole::Viewer => matches!(role, WorkspaceRole::Viewer | WorkspaceRole::Member | WorkspaceRole::Admin),
-        WorkspaceRole::Member => matches!(role, WorkspaceRole::Member | WorkspaceRole::Admin),
-        WorkspaceRole::Admin => matches!(role, WorkspaceRole::Admin),
-      };
-      Ok(has_permission)
-    }
-    None => Ok(false),
-  }
-}
 
 /// Handles the request to retrieve a paginated list of products for the authenticated user.
 /// This handler will get products from the user's default workspace or all accessible workspaces.
