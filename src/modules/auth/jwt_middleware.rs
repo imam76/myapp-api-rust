@@ -1,6 +1,6 @@
 use axum::{
   extract::{Request, State},
-  http::header::AUTHORIZATION,
+  http::{HeaderName, HeaderValue, header::AUTHORIZATION},
   middleware::Next,
   response::Response,
 };
@@ -13,36 +13,48 @@ use crate::{
   state::AppState,
 };
 
-/// JWT middleware that validates the Authorization header and extracts user claims.
-///
-/// This middleware checks for a valid JWT token in the Authorization header
-/// and extracts the user ID for use in protected routes.
 pub async fn jwt_middleware(State(state): State<Arc<AppState>>, mut request: Request, next: Next) -> Result<Response, AppError> {
-  // Extract the Authorization header
+  // Get token from Authorization header
   let auth_header = request
     .headers()
     .get(AUTHORIZATION)
     .and_then(|header| header.to_str().ok())
-    .ok_or_else(|| AppError::Authentication(AuthError::MissingToken))?;
+    .ok_or(AppError::Authentication(AuthError::MissingToken))?;
 
-  // Check if the header starts with "Bearer "
+  // Get workspace_id from header
+  let workspace_id = request
+    .headers()
+    .get("X-Workspace-ID")
+    .and_then(|header| header.to_str().ok())
+    .map(|s| s.to_string());
+
   if !auth_header.starts_with("Bearer ") {
     return Err(AppError::Authentication(AuthError::InvalidToken));
   }
 
-  // Extract the token part (after "Bearer ")
-  let token = &auth_header[7..];
+  let token = auth_header[7..].to_string();
 
-  // Decode and validate the JWT token
-  let token_data = decode::<Claims>(token, &DecodingKey::from_secret(state.jwt_secret.as_ref()), &Validation::default())
-    .map_err(|_| AppError::Authentication(AuthError::InvalidToken))?;
+  // Validate JWT token
+  let claims = decode::<Claims>(&token, &DecodingKey::from_secret(state.jwt_secret.as_ref()), &Validation::default())
+    .map_err(|_| AppError::Authentication(AuthError::InvalidToken))?
+    .claims;
 
-  // Extract the user ID from the token claims
-  let user_id = token_data.claims.sub;
+  // Add user to request
+  request.extensions_mut().insert(claims.sub);
 
-  // Add the user ID to the request extensions for use in handlers
-  request.extensions_mut().insert(user_id);
+  // Process request
+  let mut response = next.run(request).await;
 
-  // Continue to the next middleware/handler
-  Ok(next.run(request).await)
+  // Add response headers
+  response
+    .headers_mut()
+    .insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", token)).unwrap());
+
+  if let Some(ws_id) = workspace_id {
+    response
+      .headers_mut()
+      .insert(HeaderName::from_static("x-workspace-id"), HeaderValue::from_str(&ws_id).unwrap());
+  }
+
+  Ok(response)
 }
