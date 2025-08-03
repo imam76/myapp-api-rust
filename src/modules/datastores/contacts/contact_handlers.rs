@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::{
   AppResult, AppState,
   errors::{AppError, NotFoundError},
+  helper::WorkspaceContext,
   modules::{
     auth::current_user::CurrentUser,
     datastores::{
@@ -63,6 +64,7 @@ pub async fn get_list(
   State(state): State<Arc<AppState>>,
   Query(params): Query<GetContactsQuery>,
   current_user: CurrentUser,
+  WorkspaceContext(workspace_id): WorkspaceContext, // Extracted from request headers
 ) -> AppResult<Json<ApiResponse<PaginatedResponse<ContactResponse>>>> {
   let repository = &state.contact_repository;
 
@@ -73,22 +75,34 @@ pub async fn get_list(
     limit = MAX_LIMIT;
   }
 
-  tracing::debug!("Fetching contacts for user {}: page={}, limit={}", current_user.user_id, page, limit);
+  tracing::debug!("Fetching contacts for workspace_id {:?}: page={}, limit={}", workspace_id, page, limit);
 
-  let (contacts, total) = repository.find_all_by_user_paginated(current_user.user_id, page, limit).await?;
-  let pagination = PaginationMeta::new(page, limit, total);
+  // If workspace_id is provided, check permissions
+  if let Some(workspace_id) = workspace_id {
+    let workspace_repository = &state.workspace_repository;
+    if !check_workspace_permission(workspace_repository, workspace_id, current_user.user_id, WorkspaceRole::Member).await? {
+      return Err(AppError::Authorization("You don't have permission to access this workspace".to_string()));
+    }
 
-  tracing::debug!("Retrieved {} contacts for user {}", contacts.len(), current_user.user_id);
+    let (contacts, total) = repository
+      .find_all_by_workspace_paginated(workspace_id, current_user.user_id, page, limit)
+      .await?;
+    let pagination = PaginationMeta::new(page, limit, total);
 
-  let response = ApiResponse::success(
-    PaginatedResponse {
-      list: contacts.into_iter().map(ContactResponse::from).collect(),
-      pagination,
-    },
-    "Contacts retrieved successfully",
-  );
+    tracing::debug!("Retrieved {} contacts for workspace {}", contacts.len(), workspace_id);
 
-  Ok(Json(response))
+    let response = ApiResponse::success(
+      PaginatedResponse {
+        list: contacts.into_iter().map(ContactResponse::from).collect(),
+        pagination,
+      },
+      "Contacts retrieved successfully",
+    );
+    return Ok(Json(response));
+  } else {
+    // error if no workspace_id is provided
+    return Err(AppError::BadRequest("Workspace ID is required to fetch contacts".to_string()));
+  }
 }
 
 /// Handles the request to create a new contact for the authenticated user.

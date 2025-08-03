@@ -23,6 +23,7 @@ use crate::modules::datastores::products::product_repository::SqlxProductReposit
 use crate::modules::datastores::workspaces::workspace_repository::PostgresWorkspaceRepository;
 
 pub mod errors;
+pub mod helper;
 pub mod modules;
 pub mod responses;
 pub mod state;
