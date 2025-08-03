@@ -65,12 +65,12 @@ pub async fn login_user(state: Arc<AppState>, login_data: LoginUserDto) -> Resul
     .is_ok();
 
   let dbsize = state.auth_repository.get_db_size().await?;
-  // Limit for trial users is set to 5MB
-  let max_allowed = 5 * 1024 * 1024;
+  // Limit for trial users is set to 100MB
+  let max_allowed = 100 * 1024 * 1024;
 
   if dbsize > max_allowed {
     return Err(AppError::database_size_exceeded(
-      "Trial users are limited to 5MB records. Upgrade to add more data.",
+      "Trial users are limited to 100MB records. Upgrade to add more data.",
     ));
   }
 
