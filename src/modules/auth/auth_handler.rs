@@ -18,8 +18,7 @@ pub async fn register_user_handler(
   Json(body): Json<RegisterUserDto>,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
   let (user, workspace) = register_user(state, body).await?;
-  let user_response =
-    json!({"status": "success", "user": serde_json::to_value(user).unwrap(), "workspace": serde_json::to_value(workspace).unwrap()});
+  let user_response = json!({"status": "success", "user": user, "workspace": workspace});
   Ok((StatusCode::CREATED, Json(user_response)))
 }
 
