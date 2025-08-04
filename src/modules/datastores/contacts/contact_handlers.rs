@@ -4,6 +4,7 @@ use crate::{
   AppResult, AppState,
   errors::{AppError, NotFoundError},
   helper::{WorkspaceContext, workspace::check_workspace_permission},
+  impl_next_code_handler,
   modules::{
     auth::current_user::CurrentUser,
     datastores::{
@@ -12,11 +13,7 @@ use crate::{
     },
   },
   responses::{ApiResponse, PaginatedResponse, PaginationMeta},
-  utils::{
-    code_generator::CodeGeneratorConfig,
-    next_code_macro::NextCodeQuery,
-  },
-  impl_next_code_handler,
+  utils::{code_generator::CodeGeneratorConfig, next_code_macro::NextCodeQuery},
 };
 use axum::{
   Json,
@@ -120,7 +117,7 @@ pub async fn create(
 
   // Extract payload first
   let Json(mut payload) = payload?;
-  
+
   // Auto-generate code if field is empty
   if payload.code.trim().is_empty() {
     let generated_code = repository.get_next_available_code(workspace_id, &payload.name).await?;
