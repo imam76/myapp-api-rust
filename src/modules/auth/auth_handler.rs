@@ -34,7 +34,7 @@ pub async fn login_user_handler(State(state): State<Arc<AppState>>, Json(body): 
 ///
 /// This handler demonstrates how to use the `CurrentUser` extractor to access
 /// the authenticated user's information in protected routes.
-pub async fn get_current_user_handler(State(state): State<Arc<AppState>>, current_user: CurrentUser) -> Result<Json<Value>, AppError> {
+pub async fn get_current_user_handler(State(state): State<Arc<AppState>>, current_user: CurrentUser) -> Result<(StatusCode, Json<Value>), AppError> {
   // Find the user in the database using the ID from the JWT token
   let user = state.auth_repository.find_by_id(current_user.user_id).await?;
 
