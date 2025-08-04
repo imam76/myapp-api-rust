@@ -28,6 +28,7 @@ pub struct Contact {
 /// Represents the payload for creating a new contact.
 /// This struct uses `validator` to enforce declarative validation rules on the incoming data.
 /// The `created_by` field is automatically set from the authenticated user.
+/// The `workspace_id` is now extracted from request headers via WorkspaceContext, not from the body.
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateContactRequest {
   #[validate(length(min = 1, message = "Code is required"))]
@@ -41,14 +42,12 @@ pub struct CreateContactRequest {
   #[validate(length(min = 1, message = "Contact type is required"))]
   pub contact_type: String,
   pub address: Option<String>,
-
-  //Metadata
-  pub workspace_id: Option<Uuid>,
 }
 
 /// Represents the payload for updating an existing contact.
 /// All fields are optional, allowing for partial updates.
 /// The `updated_by` field is automatically set from the authenticated user.
+/// The `workspace_id` cannot be changed via update - it's workspace-scoped.
 #[derive(Debug, Deserialize)]
 pub struct UpdateContactRequest {
   pub code: Option<String>,
@@ -58,9 +57,6 @@ pub struct UpdateContactRequest {
   pub contact_type: Option<String>,
   pub address: Option<String>,
   pub is_active: Option<bool>,
-
-  // Metadata
-  pub workspace_id: Option<Uuid>,
 }
 
 /// Represents the data structure for a contact response.

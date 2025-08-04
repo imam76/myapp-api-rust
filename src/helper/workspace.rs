@@ -8,7 +8,7 @@ use crate::{
 use axum::{async_trait, extract::FromRequestParts, http::request::Parts};
 use uuid::Uuid;
 
-pub struct WorkspaceContext(pub Option<Uuid>);
+pub struct WorkspaceContext(pub Uuid);
 
 #[async_trait]
 impl<S> FromRequestParts<S> for WorkspaceContext
@@ -25,9 +25,9 @@ where
 
       let workspace_id = Uuid::parse_str(workspace_str).map_err(|_| AppError::BadRequest("Invalid workspace ID format".to_string()))?;
 
-      Ok(WorkspaceContext(Some(workspace_id)))
+      Ok(WorkspaceContext(workspace_id))
     } else {
-      Ok(WorkspaceContext(None))
+      Err(AppError::BadRequest("X-Workspace-ID header is required".to_string()))
     }
   }
 }
