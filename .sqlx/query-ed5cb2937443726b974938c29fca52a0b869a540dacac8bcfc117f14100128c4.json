@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n          id, code, name, email, position, type as contact_type, \n          address, is_active, workspace_id, created_by, updated_by, created_at, updated_at\n        FROM contacts \n        WHERE workspace_id = $1 \n          AND id IN (\n            SELECT c.id FROM contacts c\n            JOIN workspaces w ON c.workspace_id = w.id\n            JOIN workspace_users wu ON w.id = wu.workspace_id\n            WHERE wu.user_id = $2\n          )\n        ORDER BY created_at DESC\n      ",
+  "query": "\n        UPDATE contacts \n        SET \n          code = COALESCE($1, code),\n          name = COALESCE($2, name),\n          email = COALESCE($3, email),\n          position = COALESCE($4, position),\n          type = COALESCE($5, type),\n          address = COALESCE($6, address),\n          is_active = COALESCE($7, is_active),\n          updated_by = $8,\n          updated_at = NOW()\n        WHERE id = $9 AND workspace_id = $10\n        RETURNING \n          id, code, name, email, position, type as contact_type, \n          address, is_active, workspace_id, created_by, updated_by, created_at, updated_at\n      ",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,14 @@
     ],
     "parameters": {
       "Left": [
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Text",
+        "Bool",
+        "Uuid",
         "Uuid",
         "Uuid"
       ]
@@ -91,5 +99,5 @@
       false
     ]
   },
-  "hash": "eaf8bace9a9ae689024bf3571ce111dcc11756246383efc6fc466eb9efea2b3d"
+  "hash": "ed5cb2937443726b974938c29fca52a0b869a540dacac8bcfc117f14100128c4"
 }
