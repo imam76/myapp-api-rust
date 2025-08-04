@@ -12,6 +12,11 @@ use crate::{
     },
   },
   responses::{ApiResponse, PaginatedResponse, PaginationMeta},
+  utils::{
+    code_generator::CodeGeneratorConfig,
+    next_code_macro::NextCodeQuery,
+  },
+  impl_next_code_handler,
 };
 use axum::{
   Json,
@@ -24,6 +29,20 @@ use validator::Validate;
 const DEFAULT_PAGE: u32 = 1;
 const DEFAULT_LIMIT: u32 = 10;
 const MAX_LIMIT: u32 = 100;
+
+// Generate next_code handler using macro
+impl_next_code_handler!(
+  get_next_code,
+  "contact",
+  CodeGeneratorConfig {
+    table_name: "contacts".to_string(),
+    code_column: "code".to_string(),
+    workspace_column: Some("workspace_id".to_string()),
+    prefix_length: 2,
+    number_length: 5,
+    separator: "-".to_string(),
+  }
+);
 
 /// Handles the request to retrieve a paginated list of contacts for the authenticated user.
 /// This handler will get contacts from the user's default workspace or all accessible workspaces.
@@ -77,6 +96,7 @@ pub async fn get_list(
   );
   Ok(Json(response))
 }
+
 /// Handles the request to create a new contact for the authenticated user.
 /// The contact will be created in the specified workspace or user's default workspace.
 ///
@@ -98,8 +118,17 @@ pub async fn create(
 ) -> AppResult<(StatusCode, Json<ApiResponse<ContactResponse>>)> {
   let repository = &state.contact_repository;
 
-  // Extract and validate the payload
-  let Json(payload) = payload?;
+  // Extract payload first
+  let Json(mut payload) = payload?;
+  
+  // Auto-generate code if field is empty
+  if payload.code.trim().is_empty() {
+    let generated_code = repository.get_next_available_code(workspace_id, &payload.name).await?;
+    tracing::debug!("Auto-generated code: {} for name: '{}'", generated_code, payload.name);
+    payload.code = generated_code;
+  }
+
+  // Now validate with the final code
   payload.validate()?;
 
   tracing::debug!(
@@ -117,8 +146,8 @@ pub async fn create(
     ));
   }
 
-  // Check if code already exists in this workspace
-  if let Some(_) = repository.find_by_code_and_workspace(&payload.code, workspace_id).await? {
+  // Check if code already exists in this workspace using the new method
+  if repository.code_exists(&payload.code, workspace_id).await? {
     return Err(AppError::validation_with_code(
       "code",
       "Contact code already exists in this workspace",

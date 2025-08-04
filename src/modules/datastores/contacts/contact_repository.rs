@@ -3,7 +3,10 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::contact_models::{Contact, CreateContactRequest, UpdateContactRequest};
-use crate::AppResult;
+use crate::{
+  AppResult,
+  utils::code_generator::{CodeGenerator, CodeGeneratorConfig},
+};
 
 #[async_trait]
 pub trait ContactRepository {
@@ -21,6 +24,10 @@ pub trait ContactRepository {
   ) -> AppResult<Option<Contact>>;
   async fn delete_by_workspace_and_user(&self, id: Uuid, workspace_id: Uuid, user_id: Uuid) -> AppResult<bool>;
 
+  // Code generation methods
+  async fn get_next_available_code(&self, workspace_id: Uuid, contact_name: &str) -> AppResult<String>;
+  async fn code_exists(&self, code: &str, workspace_id: Uuid) -> AppResult<bool>;
+
   // Optional methods for specific use cases
   async fn find_by_type_and_workspace(&self, contact_type: &str, workspace_id: Uuid, user_id: Uuid) -> AppResult<Vec<Contact>>;
   async fn find_active_by_workspace(&self, workspace_id: Uuid, user_id: Uuid) -> AppResult<Vec<Contact>>;
@@ -33,6 +40,11 @@ pub struct SqlxContactRepository {
 impl SqlxContactRepository {
   pub fn new(db: PgPool) -> Self {
     Self { db }
+  }
+
+  /// Get access to the underlying database pool
+  pub fn get_pool(&self) -> PgPool {
+    self.db.clone()
   }
 }
 
@@ -267,5 +279,31 @@ impl ContactRepository for SqlxContactRepository {
     .await?;
 
     Ok(result.rows_affected() > 0)
+  }
+
+  async fn get_next_available_code(&self, workspace_id: Uuid, contact_name: &str) -> AppResult<String> {
+    let code_generator = CodeGenerator::new(self.db.clone());
+    let config = CodeGeneratorConfig {
+      table_name: "contacts".to_string(),
+      code_column: "code".to_string(),
+      workspace_column: Some("workspace_id".to_string()),
+      prefix_length: 2,
+      number_length: 5,
+      separator: "-".to_string(),
+    };
+
+    code_generator.get_next_available_code(&config, contact_name, Some(workspace_id)).await
+  }
+
+  async fn code_exists(&self, code: &str, workspace_id: Uuid) -> AppResult<bool> {
+    let code_generator = CodeGenerator::new(self.db.clone());
+    let config = CodeGeneratorConfig {
+      table_name: "contacts".to_string(),
+      code_column: "code".to_string(),
+      workspace_column: Some("workspace_id".to_string()),
+      ..Default::default()
+    };
+
+    code_generator.code_exists(&config, code, Some(workspace_id)).await
   }
 }

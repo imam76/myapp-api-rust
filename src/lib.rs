@@ -27,6 +27,7 @@ pub mod helper;
 pub mod modules;
 pub mod responses;
 pub mod state;
+pub mod utils;
 
 pub use errors::AppError;
 pub use state::AppState;
