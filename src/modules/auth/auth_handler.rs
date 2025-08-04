@@ -39,18 +39,9 @@ pub async fn get_current_user_handler(State(state): State<Arc<AppState>>, curren
   let user = state.auth_repository.find_by_id(current_user.user_id).await?;
 
   if let Some(user) = user {
-    let response = json!({
-        "status": "success",
-        "data": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "is_active": user.is_active,
-            "created_at": user.created_at,
-            "updated_at": user.updated_at
-        }
-    });
-    Ok(Json(response))
+    let workspace = state.workspace_repository.get_user_workspaces(user.id).await?;
+    let response = json!({"status": "success", "user": user, "workspace": workspace});
+    Ok((StatusCode::OK, Json(response)))
   } else {
     Err(AppError::NotFound(NotFoundError {
       resource: "User".to_string(),
