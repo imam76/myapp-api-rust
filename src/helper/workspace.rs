@@ -23,7 +23,7 @@ where
         .to_str()
         .map_err(|_| AppError::BadRequest("Invalid workspace header".to_string()))?;
 
-      let workspace_id = Uuid::parse_str(workspace_str).map_err(|_| AppError::BadRequest("Invalid workspace ID format".to_string()))?;
+      let workspace_id = workspace_str.parse::<Uuid>()?;
 
       Ok(WorkspaceContext(workspace_id))
     } else {
