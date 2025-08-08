@@ -25,8 +25,11 @@ pub async fn create_workspace(
 pub async fn get_workspace(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
-  Path(workspace_id): Path<Uuid>,
+  Path(workspace_id): Path<String>,
 ) -> Result<Json<Workspace>, AppError> {
+  // Parse UUID with global error handling
+  let workspace_id = workspace_id.parse::<Uuid>()?;
+
   // Check if user has access to this workspace
   let role = state
     .workspace_repository
@@ -50,9 +53,12 @@ pub async fn get_workspace(
 pub async fn update_workspace(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
-  Path(workspace_id): Path<Uuid>,
+  Path(workspace_id): Path<String>,
   Json(request): Json<UpdateWorkspaceRequest>,
 ) -> Result<Json<Workspace>, AppError> {
+  // Parse UUID with global error handling
+  let workspace_id = workspace_id.parse::<Uuid>()?;
+
   // Check if user is workspace owner
   let is_owner = state.workspace_repository.is_workspace_owner(current_user.user_id, workspace_id).await?;
 
@@ -68,8 +74,11 @@ pub async fn update_workspace(
 pub async fn delete_workspace(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
-  Path(workspace_id): Path<Uuid>,
+  Path(workspace_id): Path<String>,
 ) -> Result<StatusCode, AppError> {
+  // Parse UUID with global error handling
+  let workspace_id = workspace_id.parse::<Uuid>()?;
+
   // Check if user is workspace owner
   let is_owner = state.workspace_repository.is_workspace_owner(current_user.user_id, workspace_id).await?;
 
@@ -91,8 +100,11 @@ pub async fn get_user_workspaces(State(state): State<Arc<AppState>>, current_use
 pub async fn get_workspace_users(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
-  Path(workspace_id): Path<Uuid>,
+  Path(workspace_id): Path<String>,
 ) -> Result<Json<Vec<WorkspaceUserInfo>>, AppError> {
+  // Parse UUID with global error handling
+  let workspace_id = workspace_id.parse::<Uuid>()?;
+
   // Check if user has access to this workspace
   let role = state
     .workspace_repository
@@ -111,9 +123,12 @@ pub async fn get_workspace_users(
 pub async fn add_user_to_workspace(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
-  Path(workspace_id): Path<Uuid>,
+  Path(workspace_id): Path<String>,
   Json(request): Json<AddUserToWorkspaceRequest>,
 ) -> Result<Json<()>, AppError> {
+  // Parse UUID with global error handling
+  let workspace_id = workspace_id.parse::<Uuid>()?;
+
   // Check if user is workspace owner
   let is_owner = state.workspace_repository.is_workspace_owner(current_user.user_id, workspace_id).await?;
 
@@ -132,8 +147,12 @@ pub async fn add_user_to_workspace(
 pub async fn remove_user_from_workspace(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
-  Path((workspace_id, user_id)): Path<(Uuid, Uuid)>,
+  Path((workspace_id, user_id)): Path<(String, String)>,
 ) -> Result<StatusCode, AppError> {
+  // Parse UUIDs with global error handling
+  let workspace_id = workspace_id.parse::<Uuid>()?;
+  let user_id = user_id.parse::<Uuid>()?;
+
   // Check if user is workspace owner
   let is_owner = state.workspace_repository.is_workspace_owner(current_user.user_id, workspace_id).await?;
 
@@ -154,9 +173,13 @@ pub async fn remove_user_from_workspace(
 pub async fn update_user_role(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
-  Path((workspace_id, user_id)): Path<(Uuid, Uuid)>,
+  Path((workspace_id, user_id)): Path<(String, String)>,
   Json(request): Json<UpdateUserRoleRequest>,
 ) -> Result<Json<()>, AppError> {
+  // Parse UUIDs with global error handling
+  let workspace_id = workspace_id.parse::<Uuid>()?;
+  let user_id = user_id.parse::<Uuid>()?;
+
   // Check if user is workspace owner
   let is_owner = state.workspace_repository.is_workspace_owner(current_user.user_id, workspace_id).await?;
 

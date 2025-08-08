@@ -143,10 +143,13 @@ pub async fn create(
 #[axum::debug_handler]
 pub async fn get_by_id(
   State(state): State<Arc<AppState>>,
-  Path(id): Path<Uuid>,
+  Path(id): Path<String>,
   current_user: CurrentUser,
 ) -> AppResult<Json<ApiResponse<ProductResponse>>> {
   let repository = &state.product_repository;
+
+  // Parse UUID with global error handling
+  let id = id.parse::<Uuid>()?;
 
   tracing::debug!("Fetching products with ID: {} for user: {}", id, current_user.user_id);
 
@@ -178,12 +181,15 @@ pub async fn get_by_id(
 #[axum::debug_handler]
 pub async fn update(
   State(state): State<Arc<AppState>>,
-  Path(id): Path<Uuid>,
+  Path(id): Path<String>,
   current_user: CurrentUser,
   payload: Result<Json<UpdateProductRequest>, JsonRejection>,
 ) -> AppResult<Json<ApiResponse<ProductResponse>>> {
   let repository = &state.product_repository;
   let Json(payload) = payload?;
+
+  // Parse UUID with global error handling
+  let id = id.parse::<Uuid>()?;
 
   tracing::debug!("Updating products with ID: {} for user: {}", id, current_user.user_id);
 
@@ -235,8 +241,11 @@ pub async fn update(
 ///
 /// A `Json` response with a success message if the deletion was successful, otherwise a 404 error.
 #[axum::debug_handler]
-pub async fn delete(State(state): State<Arc<AppState>>, Path(id): Path<Uuid>, current_user: CurrentUser) -> AppResult<Json<ApiResponse<()>>> {
+pub async fn delete(State(state): State<Arc<AppState>>, Path(id): Path<String>, current_user: CurrentUser) -> AppResult<Json<ApiResponse<()>>> {
   let repository = &state.product_repository;
+
+  // Parse UUID with global error handling
+  let id = id.parse::<Uuid>()?;
 
   tracing::debug!("Deleting products with ID: {} for user: {}", id, current_user.user_id);
 

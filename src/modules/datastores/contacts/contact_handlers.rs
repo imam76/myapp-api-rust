@@ -175,11 +175,14 @@ pub async fn create(
 #[axum::debug_handler]
 pub async fn get_by_id(
   State(state): State<Arc<AppState>>,
-  Path(id): Path<Uuid>,
+  Path(id): Path<String>,
   current_user: CurrentUser,
   WorkspaceContext(workspace_id): WorkspaceContext, // Extracted from request headers
 ) -> AppResult<Json<ApiResponse<ContactResponse>>> {
   let repository = &state.contact_repository;
+
+  // Parse UUID with global error handling
+  let id = id.parse::<Uuid>()?;
 
   tracing::debug!("Fetching contact with ID: {} for user: {}", id, current_user.user_id);
 
@@ -214,7 +217,7 @@ pub async fn get_by_id(
 #[axum::debug_handler]
 pub async fn update(
   State(state): State<Arc<AppState>>,
-  Path(id): Path<Uuid>,
+  Path(id): Path<String>,
   current_user: CurrentUser,
   WorkspaceContext(workspace_id): WorkspaceContext, // Extracted from request headers
   payload: Result<Json<UpdateContactRequest>, JsonRejection>,
@@ -223,6 +226,9 @@ pub async fn update(
 
   // Extract the payload
   let Json(payload) = payload?;
+
+  // Parse UUID with global error handling
+  let id = id.parse::<Uuid>()?;
 
   tracing::debug!(
     "Updating contact with ID: {} for user: {} in workspace: {}",
@@ -267,11 +273,14 @@ pub async fn update(
 #[axum::debug_handler]
 pub async fn delete(
   State(state): State<Arc<AppState>>,
-  Path(id): Path<Uuid>,
+  Path(id): Path<String>,
   current_user: CurrentUser,
   WorkspaceContext(workspace_id): WorkspaceContext, // Extracted from request headers
 ) -> AppResult<Json<ApiResponse<()>>> {
   let repository = &state.contact_repository;
+
+  // Parse UUID with global error handling
+  let id = id.parse::<Uuid>()?;
 
   tracing::debug!(
     "Deleting contact with ID: {} for user: {} in workspace: {}",
