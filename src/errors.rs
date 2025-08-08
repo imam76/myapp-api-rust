@@ -386,13 +386,16 @@ impl From<serde_json::Error> for AppError {
   }
 }
 
-/// Converts `uuid::Error` into `AppError::BadRequest`.
+/// Converts `uuid::Error` into `AppError::NotFound`.
 ///
 /// This is useful for handlers that parse a `Uuid` from a path or query parameter.
-/// If the string is not a valid UUID, it results in a `BadRequest` error.
+/// If the string is not a valid UUID, it results in a `NotFound` error indicating the resource doesn't exist.
 impl From<uuid::Error> for AppError {
-  fn from(err: uuid::Error) -> Self {
-    AppError::BadRequest(format!("Invalid UUID: {}", err))
+  fn from(_err: uuid::Error) -> Self {
+    AppError::NotFound(NotFoundError {
+      resource: "Resource".to_string(),
+      id: None,
+    })
   }
 }
 
