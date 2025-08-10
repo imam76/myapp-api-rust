@@ -13,7 +13,8 @@ pub struct Contact {
   pub name: String,
   pub email: String,
   pub position: String,
-  pub contact_type: String, // Using contact_type to avoid Rust keyword conflict
+  #[sqlx(rename = "type")]
+  pub contact_type: String, // Maps to database column "type" to avoid Rust keyword conflict
   pub address: Option<String>,
   pub is_active: bool,
 
@@ -108,6 +109,7 @@ impl From<Contact> for ContactResponse {
 
 /// Query parameters for paginated requests with advanced filtering
 #[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GetContactsQuery {
   // Pagination
   pub page: Option<u32>,

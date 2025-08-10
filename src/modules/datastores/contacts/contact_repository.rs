@@ -82,7 +82,11 @@ impl ContactRepository for SqlxContactRepository {
       user_id
     )
     .fetch_one(&self.db)
-    .await?;
+    .await
+    .map_err(|e| {
+      tracing::error!("Failed to create contact: {}", e);
+      crate::errors::AppError::from_sqlx_error(e, "INSERT INTO contacts")
+    })?;
 
     Ok(new_contact)
   }
@@ -345,7 +349,12 @@ impl ContactRepository for SqlxContactRepository {
     // Execute count query first
     let total_count: i64 = sqlx::query_scalar::<_, Option<i64>>(&count_sql)
       .fetch_one(&self.db)
-      .await?
+      .await
+      .map_err(|e| {
+        tracing::error!("Failed to execute count query: {}", e);
+        tracing::error!("Count query: {}", count_sql);
+        crate::errors::AppError::from_sqlx_error(e, &count_sql)
+      })?
       .unwrap_or(0);
 
     // If count is 0, return empty result
@@ -360,7 +369,7 @@ impl ContactRepository for SqlxContactRepository {
       .map_err(|e| {
         tracing::error!("Failed to execute filtered query: {}", e);
         tracing::error!("Query: {}", select_sql);
-        e
+        crate::errors::AppError::from_sqlx_error(e, &select_sql)
       })?;
 
     tracing::debug!("Found {} contacts with total count {}", contacts.len(), total_count);

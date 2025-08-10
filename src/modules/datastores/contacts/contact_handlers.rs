@@ -17,7 +17,7 @@ use crate::{
 };
 use axum::{
   Json,
-  extract::{Path, Query, State, rejection::JsonRejection},
+  extract::{Path, Query, State, rejection::{JsonRejection, QueryRejection}},
   http::StatusCode,
 };
 use uuid::Uuid;
@@ -56,11 +56,17 @@ impl_next_code_handler!(
 #[axum::debug_handler]
 pub async fn get_list(
   State(state): State<Arc<AppState>>,
-  Query(params): Query<GetContactsQuery>,
+  query_params: Result<Query<GetContactsQuery>, QueryRejection>,
   current_user: CurrentUser,
   WorkspaceContext(workspace_id): WorkspaceContext, // Extracted from request headers
 ) -> AppResult<Json<ApiResponse<PaginatedResponse<ContactResponse>>>> {
   let repository = &state.contact_repository;
+
+  // Handle query parameter parsing errors
+  let params = match query_params {
+    Ok(Query(params)) => params,
+    Err(rejection) => return Err(crate::errors::AppError::from(rejection)),
+  };
 
   let page = params.page.unwrap_or(DEFAULT_PAGE);
   let mut limit = params.limit.unwrap_or(DEFAULT_LIMIT);

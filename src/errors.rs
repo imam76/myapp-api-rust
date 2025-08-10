@@ -8,7 +8,7 @@
 use argon2::password_hash;
 use axum::{
   Json,
-  extract::rejection::JsonRejection,
+  extract::rejection::{JsonRejection, QueryRejection},
   http::StatusCode,
   response::{IntoResponse, Response},
 };
@@ -78,6 +78,10 @@ pub enum DatabaseError {
   MigrationFailed(String),
   /// Trial user has exceeded their database size limit.
   SizeExceeded(String),
+  /// Database schema doesn't match expected structure.
+  SchemaMismatch(String),
+  /// Column not found in database table.
+  ColumnNotFound(String),
 }
 
 /// Represents errors related to HTTP cookies.
@@ -184,14 +188,38 @@ impl IntoResponse for AppError {
         Some("VAL_001".to_string()),
       ),
       AppError::Database(db_err) => {
-        error!("Database error: {:?}", db_err);
-        (
-          StatusCode::INTERNAL_SERVER_ERROR,
-          "DATABASE_ERROR",
-          "A database error occurred".to_string(),
-          None, // Avoid leaking detailed db errors
-          Some("DB_001".to_string()),
-        )
+        match &db_err {
+          DatabaseError::SchemaMismatch(msg) => {
+            error!("Database schema mismatch: {}", msg);
+            (
+              StatusCode::INTERNAL_SERVER_ERROR,
+              "DATABASE_SCHEMA_ERROR",
+              "Database configuration error. Please contact system administrator.".to_string(),
+              Some(json!({ "technical_details": msg })),
+              Some("DB_SCHEMA_001".to_string()),
+            )
+          }
+          DatabaseError::ColumnNotFound(msg) => {
+            error!("Column not found: {}", msg);
+            (
+              StatusCode::INTERNAL_SERVER_ERROR,
+              "DATABASE_COLUMN_ERROR",
+              "Database structure error. Please contact system administrator.".to_string(),
+              Some(json!({ "technical_details": msg })),
+              Some("DB_COL_001".to_string()),
+            )
+          }
+          _ => {
+            error!("Database error: {:?}", db_err);
+            (
+              StatusCode::INTERNAL_SERVER_ERROR,
+              "DATABASE_ERROR",
+              "A database error occurred".to_string(),
+              None, // Avoid leaking detailed db errors
+              Some("DB_001".to_string()),
+            )
+          }
+        }
       }
       AppError::NotFound(not_found_err) => (
         StatusCode::NOT_FOUND,
@@ -302,6 +330,8 @@ impl fmt::Display for DatabaseError {
       }
       DatabaseError::MigrationFailed(msg) => write!(f, "Database migration failed: {}", msg),
       DatabaseError::SizeExceeded(msg) => write!(f, "Database size limit exceeded: {}", msg),
+      DatabaseError::SchemaMismatch(msg) => write!(f, "Database schema mismatch: {}", msg),
+      DatabaseError::ColumnNotFound(msg) => write!(f, "Column not found: {}", msg),
     }
   }
 }
@@ -337,6 +367,11 @@ impl From<sqlx::Error> for AppError {
         resource: "resource".to_string(), // Can be made more specific in the calling code
         id: None,
       }),
+      sqlx::Error::ColumnNotFound(col_name) => {
+        AppError::Database(DatabaseError::ColumnNotFound(
+          format!("Column '{}' not found in query result", col_name)
+        ))
+      }
       sqlx::Error::Database(db_err) => {
         if let Some(code) = db_err.code() {
           if code == "23505" {
@@ -347,6 +382,14 @@ impl From<sqlx::Error> for AppError {
             }));
           }
         }
+        
+        // Check for schema-related errors
+        if db_err.message().contains("column") && (db_err.message().contains("does not exist") || db_err.message().contains("not found")) {
+          return AppError::Database(DatabaseError::SchemaMismatch(
+            format!("Database schema error: {}", db_err.message())
+          ));
+        }
+        
         AppError::Database(DatabaseError::QueryFailed(err.to_string()))
       }
       _ => AppError::Database(DatabaseError::QueryFailed(err.to_string())),
@@ -373,6 +416,32 @@ impl From<ValidationErrors> for AppError {
 impl From<JsonRejection> for AppError {
   fn from(rejection: JsonRejection) -> Self {
     AppError::BadRequest(rejection.to_string())
+  }
+}
+
+/// Converts `axum::extract::rejection::QueryRejection` into `AppError::BadRequest`.
+///
+/// This handles errors that occur during query parameter deserialization,
+/// including unknown fields, invalid values, and other parsing issues.
+impl From<QueryRejection> for AppError {
+  fn from(rejection: QueryRejection) -> Self {
+    let error_msg = rejection.to_string();
+    
+    // Make the error message more user-friendly
+    if error_msg.contains("unknown field") {
+      // Extract field name from error message
+      if let Some(field_start) = error_msg.find("`") {
+        if let Some(field_end) = error_msg[field_start + 1..].find("`") {
+          let field_name = &error_msg[field_start + 1..field_start + 1 + field_end];
+          return AppError::BadRequest(format!("Unknown query parameter: '{}'", field_name));
+        }
+      }
+      AppError::BadRequest("Invalid query parameter provided".to_string())
+    } else if error_msg.contains("Failed to deserialize query string") {
+      AppError::BadRequest("Invalid query parameters format".to_string())
+    } else {
+      AppError::BadRequest(format!("Query parameter error: {}", error_msg))
+    }
   }
 }
 
@@ -429,5 +498,53 @@ impl AppError {
   /// Create a database size exceeded error for trial users.
   pub fn database_size_exceeded(message: &str) -> Self {
     AppError::Database(DatabaseError::SizeExceeded(message.to_string()))
+  }
+
+  /// Create a database schema mismatch error.
+  pub fn schema_mismatch(message: &str) -> Self {
+    AppError::Database(DatabaseError::SchemaMismatch(message.to_string()))
+  }
+
+  /// Create a column not found error.
+  pub fn column_not_found(column_name: &str) -> Self {
+    AppError::Database(DatabaseError::ColumnNotFound(
+      format!("Column '{}' not found", column_name)
+    ))
+  }
+
+  /// Enhanced error handling for SQLx errors with context
+  pub fn from_sqlx_error(error: sqlx::Error, query_context: &str) -> Self {
+    match error {
+      sqlx::Error::ColumnNotFound(column) => {
+        tracing::error!("Column not found: {} in query: {}", column, query_context);
+        Self::column_not_found(&column)
+      }
+      sqlx::Error::Database(db_err) => {
+        let message = db_err.message();
+        
+        // Check for schema-related errors
+        if message.contains("column") && message.contains("does not exist") {
+          tracing::error!("Schema mismatch in query: {}, error: {}", query_context, message);
+          Self::schema_mismatch(message)
+        } else if message.contains("relation") && message.contains("does not exist") {
+          tracing::error!("Schema mismatch (table) in query: {}, error: {}", query_context, message);
+          Self::schema_mismatch(message)
+        } else {
+          tracing::error!("Database error in query: {}, error: {}", query_context, message);
+          Self::Database(DatabaseError::QueryFailed(message.to_string()))
+        }
+      }
+      sqlx::Error::RowNotFound => {
+        Self::NotFound(NotFoundError {
+          resource: "Resource".to_string(),
+          id: None,
+        })
+      }
+      _ => {
+        let error_msg = error.to_string();
+        tracing::error!("SQLx error in query: {}, error: {}", query_context, error_msg);
+        Self::Database(DatabaseError::QueryFailed(error_msg))
+      }
+    }
   }
 }
