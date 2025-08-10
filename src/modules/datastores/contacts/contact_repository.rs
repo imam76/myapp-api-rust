@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::contact_models::{Contact, CreateContactRequest, UpdateContactRequest};
+use super::contact_models::{Contact, ContactFilters, CreateContactRequest, UpdateContactRequest};
 use crate::{
   AppResult,
   utils::code_generator::{CodeGenerator, CodeGeneratorConfig},
@@ -31,6 +31,16 @@ pub trait ContactRepository {
   // Optional methods for specific use cases
   async fn find_by_type_and_workspace(&self, contact_type: &str, workspace_id: Uuid, user_id: Uuid) -> AppResult<Vec<Contact>>;
   async fn find_active_by_workspace(&self, workspace_id: Uuid, user_id: Uuid) -> AppResult<Vec<Contact>>;
+  
+  // Advanced filtering method
+  async fn find_by_filters_paginated(
+    &self,
+    workspace_id: Uuid,
+    user_id: Uuid,
+    page: u32,
+    limit: u32,
+    filters: ContactFilters,
+  ) -> AppResult<(Vec<Contact>, u64)>;
 }
 
 pub struct SqlxContactRepository {
@@ -305,5 +315,56 @@ impl ContactRepository for SqlxContactRepository {
     };
 
     code_generator.code_exists(&config, code, Some(workspace_id)).await
+  }
+
+  async fn find_by_filters_paginated(
+    &self,
+    workspace_id: Uuid,
+    user_id: Uuid,
+    page: u32,
+    limit: u32,
+    filters: ContactFilters,
+  ) -> AppResult<(Vec<Contact>, u64)> {
+    use super::contact_query_builder::ContactQueryBuilder;
+    
+    let offset = (page - 1) * limit;
+    
+    // Build queries using Sea Query
+    let (mut select_sql, count_sql) = ContactQueryBuilder::build_filtered_query(
+      workspace_id, 
+      user_id, 
+      &filters
+    );
+    
+    // Add pagination to select query
+    select_sql = format!("{} LIMIT {} OFFSET {}", select_sql, limit, offset);
+
+    tracing::debug!("Executing count query: {}", count_sql);
+    tracing::debug!("Executing select query: {}", select_sql);
+
+    // Execute count query first
+    let total_count: i64 = sqlx::query_scalar::<_, Option<i64>>(&count_sql)
+      .fetch_one(&self.db)
+      .await?
+      .unwrap_or(0);
+
+    // If count is 0, return empty result
+    if total_count == 0 {
+      return Ok((vec![], 0));
+    }
+
+    // Execute data query
+    let contacts = sqlx::query_as::<_, Contact>(&select_sql)
+      .fetch_all(&self.db)
+      .await
+      .map_err(|e| {
+        tracing::error!("Failed to execute filtered query: {}", e);
+        tracing::error!("Query: {}", select_sql);
+        e
+      })?;
+
+    tracing::debug!("Found {} contacts with total count {}", contacts.len(), total_count);
+
+    Ok((contacts, total_count as u64))
   }
 }

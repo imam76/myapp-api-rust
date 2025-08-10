@@ -8,7 +8,7 @@ use crate::{
   modules::{
     auth::current_user::CurrentUser,
     datastores::{
-      contacts::contact_models::{ContactResponse, CreateContactRequest, GetContactsQuery, UpdateContactRequest},
+      contacts::contact_models::{ContactFilters, ContactResponse, CreateContactRequest, GetContactsQuery, UpdateContactRequest},
       workspaces::workspace_models::WorkspaceRole,
     },
   },
@@ -69,7 +69,11 @@ pub async fn get_list(
     limit = MAX_LIMIT;
   }
 
-  tracing::debug!("Fetching contacts for workspace_id {}: page={}, limit={}", workspace_id, page, limit);
+  tracing::debug!(
+    "Fetching contacts for workspace_id {}: page={}, limit={}, has_filters={}", 
+    workspace_id, page, limit, 
+    super::contact_query_builder::has_filters(&params)
+  );
 
   // Check workspace permissions
   let workspace_repository = &state.workspace_repository;
@@ -77,9 +81,14 @@ pub async fn get_list(
     return Err(AppError::Authorization("You don't have permission to access this workspace".to_string()));
   }
 
-  let (contacts, total) = repository
-    .find_all_by_workspace_paginated(workspace_id, current_user.user_id, page, limit)
-    .await?;
+  let (contacts, total) = if super::contact_query_builder::has_filters(&params) {
+    let filters = ContactFilters::from(params);
+    repository.find_by_filters_paginated(workspace_id, current_user.user_id, page, limit, filters).await?
+  } else {
+    repository
+      .find_all_by_workspace_paginated(workspace_id, current_user.user_id, page, limit)
+      .await?
+  };
   let pagination = PaginationMeta::new(page, limit, total);
 
   tracing::debug!("Retrieved {} contacts for workspace {}", contacts.len(), workspace_id);
