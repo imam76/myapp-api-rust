@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n          id, code, name, category_id, base_unit, unit_on_report_preview,\n          selling_price, unit_cost, supplier_id, track_inventory,\n          description, sku, barcode, minimum_stock, maximum_stock,\n          reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n          is_active, workspace_id, created_by, updated_by, created_at, updated_at\n        FROM products \n        ORDER BY created_at DESC\n        LIMIT $1 OFFSET $2\n      ",
+  "query": "\n                INSERT INTO products (\n                    code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n                    workspace_id, created_by\n                )\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)\n                RETURNING \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -136,8 +136,27 @@
     ],
     "parameters": {
       "Left": [
-        "Int8",
-        "Int8"
+        "Varchar",
+        "Varchar",
+        "Uuid",
+        "Varchar",
+        "Varchar",
+        "Numeric",
+        "Numeric",
+        "Uuid",
+        "Bool",
+        "Text",
+        "Varchar",
+        "Varchar",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Varchar",
+        "Numeric",
+        "Numeric",
+        "Uuid",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -169,5 +188,5 @@
       false
     ]
   },
-  "hash": "e757291e3832bdf9d2e6ba66b2c8b61ffedcd29d1e99cfe6ceac05e7ce85d56b"
+  "hash": "d3ac2292d4d021867a2416221fb5c7d7b546dc0446291b44c884cc2e82f9e2eb"
 }

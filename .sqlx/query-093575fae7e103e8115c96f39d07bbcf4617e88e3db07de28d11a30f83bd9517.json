@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n          p.id, p.code, p.name, p.category_id, p.base_unit, p.unit_on_report_preview,\n          p.selling_price, p.unit_cost, p.supplier_id, p.track_inventory,\n          p.description, p.sku, p.barcode, p.minimum_stock, p.maximum_stock,\n          p.reorder_level, p.current_stock, p.tax_type, p.tax_rate, p.tax_amount,\n          p.is_active, p.workspace_id, p.created_by, p.updated_by, p.created_at, p.updated_at\n        FROM products p\n        JOIN workspaces w ON w.id = $2\n        JOIN workspace_users wu ON w.id = wu.workspace_id\n        WHERE p.category_id = $1 AND wu.user_id = $3\n        ORDER BY p.created_at DESC\n        LIMIT $4 OFFSET $5\n      ",
+  "query": "\n                UPDATE products \n                SET \n                    code = COALESCE($3, code),\n                    name = COALESCE($4, name),\n                    category_id = COALESCE($5, category_id),\n                    base_unit = COALESCE($6, base_unit),\n                    unit_on_report_preview = COALESCE($7, unit_on_report_preview),\n                    selling_price = COALESCE($8, selling_price),\n                    unit_cost = COALESCE($9, unit_cost),\n                    supplier_id = COALESCE($10, supplier_id),\n                    track_inventory = COALESCE($11, track_inventory),\n                    description = COALESCE($12, description),\n                    sku = COALESCE($13, sku),\n                    barcode = COALESCE($14, barcode),\n                    minimum_stock = COALESCE($15, minimum_stock),\n                    maximum_stock = COALESCE($16, maximum_stock),\n                    reorder_level = COALESCE($17, reorder_level),\n                    current_stock = COALESCE($18, current_stock),\n                    tax_type = COALESCE($19, tax_type),\n                    tax_rate = COALESCE($20, tax_rate),\n                    tax_amount = COALESCE($21, tax_amount),\n                    is_active = COALESCE($22, is_active),\n                    updated_by = $23,\n                    updated_at = NOW()\n                WHERE id = $1 AND workspace_id = $2\n                RETURNING \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -138,9 +138,27 @@
       "Left": [
         "Uuid",
         "Uuid",
+        "Varchar",
+        "Varchar",
         "Uuid",
-        "Int8",
-        "Int8"
+        "Varchar",
+        "Varchar",
+        "Numeric",
+        "Numeric",
+        "Uuid",
+        "Bool",
+        "Text",
+        "Varchar",
+        "Varchar",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Varchar",
+        "Numeric",
+        "Numeric",
+        "Bool",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -172,5 +190,5 @@
       false
     ]
   },
-  "hash": "6ca73e4ba775d786177fbbb7164285f9e7d3742dbd97736bd44cb69272eb5506"
+  "hash": "093575fae7e103e8115c96f39d07bbcf4617e88e3db07de28d11a30f83bd9517"
 }

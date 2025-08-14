@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT \n          id, code, name, category_id, base_unit, unit_on_report_preview,\n          selling_price, unit_cost, supplier_id, track_inventory,\n          description, sku, barcode, minimum_stock, maximum_stock,\n          reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n          is_active, workspace_id, created_by, updated_by, created_at, updated_at\n        FROM products \n        WHERE is_active = true\n        ORDER BY created_at DESC\n      ",
+  "query": "\n                SELECT \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n                FROM products \n                WHERE category_id = $1 AND workspace_id = $2 AND is_active = true\n                  AND id IN (\n                    SELECT p.id FROM products p\n                    JOIN workspaces w ON p.workspace_id = w.id\n                    JOIN workspace_users wu ON w.id = wu.workspace_id\n                    WHERE wu.user_id = $3\n                  )\n                ORDER BY name ASC\n            ",
   "describe": {
     "columns": [
       {
@@ -135,7 +135,11 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
@@ -166,5 +170,5 @@
       false
     ]
   },
-  "hash": "9575182e71b9b4bd735a71f0d84d93ac6fdaf9d74487056bbca66674ca1aaa0e"
+  "hash": "8656734838410f9815596e6bcc82c5afb17c9c2e8dd7efd545e49f65ceda20a6"
 }
