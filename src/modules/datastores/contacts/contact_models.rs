@@ -114,12 +114,12 @@ pub struct GetContactsQuery {
   // Pagination
   pub page: Option<u32>,
   pub limit: Option<u32>,
-  
+
   // Basic filtering
   pub search: Option<String>,
   pub contact_type: Option<String>,
   pub is_active: Option<bool>,
-  
+
   // Advanced filtering
   pub code: Option<String>,
   pub email: Option<String>,
@@ -127,10 +127,10 @@ pub struct GetContactsQuery {
   pub exclude_types: Option<String>, // comma-separated: "employee"
   pub include_ids: Option<String>,   // comma-separated UUIDs
   pub exclude_ids: Option<String>,   // comma-separated UUIDs
-  
+
   // Sorting
-  pub sort_by: Option<String>,       // "name", "email", "created_at", "updated_at", "code"
-  pub sort_order: Option<String>,    // "asc" or "desc"
+  pub sort_by: Option<String>,    // "name", "email", "created_at", "updated_at", "code"
+  pub sort_order: Option<String>, // "asc" or "desc"
 }
 
 // Constants untuk consistency dengan handler
@@ -155,43 +155,45 @@ pub struct ContactFilters {
 impl From<GetContactsQuery> for ContactFilters {
   fn from(query: GetContactsQuery) -> Self {
     // Parse include/exclude types
-    let include_types = query.include_types
+    let include_types = query
+      .include_types
       .map(|s| s.split(',').map(|s| s.trim().to_string()).collect())
       .unwrap_or_default();
-      
-    let exclude_types = query.exclude_types
+
+    let exclude_types = query
+      .exclude_types
       .map(|s| s.split(',').map(|s| s.trim().to_string()).collect())
       .unwrap_or_default();
-    
+
     // Parse include/exclude IDs
-    let include_ids = query.include_ids
-      .map(|s| s.split(',')
-        .filter_map(|id| Uuid::parse_str(id.trim()).ok())
-        .collect())
+    let include_ids = query
+      .include_ids
+      .map(|s| s.split(',').filter_map(|id| Uuid::parse_str(id.trim()).ok()).collect())
       .unwrap_or_default();
-      
-    let exclude_ids = query.exclude_ids
-      .map(|s| s.split(',')
-        .filter_map(|id| Uuid::parse_str(id.trim()).ok())
-        .collect())
+
+    let exclude_ids = query
+      .exclude_ids
+      .map(|s| s.split(',').filter_map(|id| Uuid::parse_str(id.trim()).ok()).collect())
       .unwrap_or_default();
-    
+
     // Validate and set sort parameters
     let sort_by = match query.sort_by.as_deref() {
       Some("name") => "name",
-      Some("email") => "email", 
+      Some("email") => "email",
       Some("code") => "code",
       Some("contact_type") => "type",
       Some("created_at") => "created_at",
       Some("updated_at") => "updated_at",
-      _ => "created_at" // default
-    }.to_string();
-    
+      _ => "created_at", // default
+    }
+    .to_string();
+
     let sort_order = match query.sort_order.as_deref() {
       Some("asc") | Some("ASC") => "ASC",
-      Some("desc") | Some("DESC") => "DESC", 
-      _ => "DESC" // default
-    }.to_string();
+      Some("desc") | Some("DESC") => "DESC",
+      _ => "DESC", // default
+    }
+    .to_string();
 
     Self {
       search: query.search,

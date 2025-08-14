@@ -3,19 +3,24 @@ use std::sync::Arc;
 use crate::{
   AppResult, AppState,
   errors::{AppError, NotFoundError},
-  helper::workspace::check_workspace_permission,
+  helper::{WorkspaceContext, workspace::check_workspace_permission},
+  impl_next_code_handler,
   modules::{
     auth::current_user::CurrentUser,
     datastores::{
-      products::product_models::{CreateProductRequest, GetProductsQuery, ProductResponse, UpdateProductRequest},
+      products::product_models::{CreateProductRequest, GetProductsQuery, ProductFilters, ProductResponse, UpdateProductRequest},
       workspaces::workspace_models::WorkspaceRole,
     },
   },
   responses::{ApiResponse, PaginatedResponse, PaginationMeta},
+  utils::{code_generator::CodeGeneratorConfig, next_code_macro::NextCodeQuery},
 };
 use axum::{
   Json,
-  extract::{Path, Query, State, rejection::JsonRejection},
+  extract::{
+    Path, Query, State,
+    rejection::{JsonRejection, QueryRejection},
+  },
   http::StatusCode,
 };
 use uuid::Uuid;
@@ -24,6 +29,20 @@ use validator::Validate;
 const DEFAULT_PAGE: u32 = 1;
 const DEFAULT_LIMIT: u32 = 10;
 const MAX_LIMIT: u32 = 100;
+
+// Generate next_code handler using macro
+impl_next_code_handler!(
+  get_next_code,
+  "product",
+  CodeGeneratorConfig {
+    table_name: "products".to_string(),
+    code_column: "code".to_string(),
+    workspace_column: Some("workspace_id".to_string()),
+    prefix_length: 2,
+    number_length: 5,
+    separator: "-".to_string(),
+  }
+);
 
 /// Handles the request to retrieve a paginated list of products for the authenticated user.
 /// This handler will get products from the user's default workspace or all accessible workspaces.
@@ -40,10 +59,17 @@ const MAX_LIMIT: u32 = 100;
 #[axum::debug_handler]
 pub async fn get_list(
   State(state): State<Arc<AppState>>,
-  Query(params): Query<GetProductsQuery>,
+  query_params: Result<Query<GetProductsQuery>, QueryRejection>,
   current_user: CurrentUser,
+  WorkspaceContext(workspace_id): WorkspaceContext, // Extracted from request headers
 ) -> AppResult<Json<ApiResponse<PaginatedResponse<ProductResponse>>>> {
   let repository = &state.product_repository;
+
+  // Handle query parameter parsing errors
+  let params = match query_params {
+    Ok(Query(params)) => params,
+    Err(rejection) => return Err(crate::errors::AppError::from(rejection)),
+  };
 
   let page = params.page.unwrap_or(DEFAULT_PAGE);
   let mut limit = params.limit.unwrap_or(DEFAULT_LIMIT);
@@ -52,12 +78,33 @@ pub async fn get_list(
     limit = MAX_LIMIT;
   }
 
-  tracing::debug!("Fetching products for user {}: page={}, limit={}", current_user.user_id, page, limit);
+  tracing::debug!(
+    "Fetching products for workspace_id {}: page={}, limit={}, has_filters={}",
+    workspace_id,
+    page,
+    limit,
+    super::product_query_builder::has_filters(&params)
+  );
 
-  let (products, total) = repository.find_all_by_user_paginated(current_user.user_id, page, limit).await?;
+  // Check workspace permissions
+  let workspace_repository = &state.workspace_repository;
+  if !check_workspace_permission(workspace_repository, workspace_id, current_user.user_id, WorkspaceRole::Member).await? {
+    return Err(AppError::Authorization("You don't have permission to access this workspace".to_string()));
+  }
+
+  let (products, total) = if super::product_query_builder::has_filters(&params) {
+    let filters = ProductFilters::from(params);
+    repository
+      .find_by_filters_paginated(workspace_id, current_user.user_id, page, limit, filters)
+      .await?
+  } else {
+    repository
+      .find_all_by_workspace_paginated(workspace_id, current_user.user_id, page, limit)
+      .await?
+  };
   let pagination = PaginationMeta::new(page, limit, total);
 
-  tracing::debug!("Retrieved {} products for user {}", products.len(), current_user.user_id);
+  tracing::debug!("Retrieved {} products for workspace {}", products.len(), workspace_id);
 
   let response = ApiResponse::success(
     PaginatedResponse {
@@ -66,18 +113,17 @@ pub async fn get_list(
     },
     "Products retrieved successfully",
   );
-
   Ok(Json(response))
 }
 
-/// Handles the request to create a new products for the authenticated user.
-/// The products will be created in the specified workspace or user's default workspace.
+/// Handles the request to create a new product for the authenticated user.
+/// The product will be created in the specified workspace or user's default workspace.
 ///
 /// # Arguments
 ///
 /// * `State(state)`: The shared application state.
 /// * `current_user`: The authenticated user extracted from the JWT token.
-/// * `payload`: The JSON payload containing the new products's data.
+/// * `payload`: The JSON payload containing the new product's data.
 ///
 /// # Returns
 ///
@@ -86,170 +132,224 @@ pub async fn get_list(
 pub async fn create(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
+  WorkspaceContext(workspace_id): WorkspaceContext, // Extracted from request headers
   payload: Result<Json<CreateProductRequest>, JsonRejection>,
 ) -> AppResult<(StatusCode, Json<ApiResponse<ProductResponse>>)> {
   let repository = &state.product_repository;
 
-  // Extract and validate the payload
-  let Json(payload) = payload?;
-  payload.validate()?;
+  // Extract payload first
+  let Json(mut payload) = payload?;
 
-  tracing::debug!("Creating products with code: {} for user: {}", payload.code, current_user.user_id);
-
-  // Check if workspace_id is provided and validate access
-  if let Some(workspace_id) = payload.workspace_id {
-    let workspace_repository = &state.workspace_repository;
-    if !check_workspace_permission(&workspace_repository, workspace_id, current_user.user_id, WorkspaceRole::Member).await? {
-      return Err(AppError::Authorization(
-        "You don't have permission to create products in this workspace".to_string(),
-      ));
-    }
-
-    // Check if code already exists in this workspace
-    if let Some(_) = repository.find_by_code_and_workspace(&payload.code, workspace_id).await? {
-      return Err(AppError::validation_with_code(
-        "code",
-        "Product code already exists in this workspace",
-        "DUPLICATE_CODE",
-      ));
-    }
-  } else {
-    // Check if code already exists for this user (global check for user-level products)
-    if let Some(_) = repository.find_by_code(&payload.code).await? {
-      return Err(AppError::validation_with_code("code", "Product code already exists", "DUPLICATE_CODE"));
-    }
+  // Auto-generate code if field is empty
+  if payload.code.trim().is_empty() {
+    let generated_code = repository.get_next_available_code(workspace_id, &payload.name).await?;
+    tracing::debug!("Auto-generated code: {} for name: '{}'", generated_code, payload.name);
+    payload.code = generated_code;
   }
 
-  let products = repository.create(payload, current_user.user_id).await?;
+  // Now validate with the final code
+  payload.validate()?;
 
-  tracing::info!("Product created successfully with ID: {} for user: {}", products.id, current_user.user_id);
+  tracing::debug!(
+    "Creating product with code: {} for user: {} in workspace: {}",
+    payload.code,
+    current_user.user_id,
+    workspace_id
+  );
 
-  let response = ApiResponse::success(ProductResponse::from(products), "Product created successfully");
+  // Check workspace permissions
+  let workspace_repository = &state.workspace_repository;
+  if !check_workspace_permission(workspace_repository, workspace_id, current_user.user_id, WorkspaceRole::Member).await? {
+    return Err(AppError::Authorization(
+      "You don't have permission to create products in this workspace".to_string(),
+    ));
+  }
 
+  // Check if code already exists in this workspace
+  if repository.code_exists(&payload.code, workspace_id).await? {
+    return Err(AppError::Conflict("Product code already exists in this workspace".to_string()));
+  }
+
+  let new_product = repository.create_by_workspace(payload, workspace_id, current_user.user_id).await?;
+
+  tracing::info!(
+    "Product created successfully: id={}, code={}, name={}",
+    new_product.id,
+    new_product.code,
+    new_product.name
+  );
+
+  let response = ApiResponse::success(ProductResponse::from(new_product), "Product created successfully");
   Ok((StatusCode::CREATED, Json(response)))
 }
 
-/// Handles the request to retrieve a single products by its ID for the authenticated user.
+/// Handles the request to retrieve a specific product by its ID.
+/// This handler ensures that the product belongs to the user's workspace.
 ///
 /// # Arguments
 ///
 /// * `State(state)`: The shared application state.
-/// * `Path(id)`: The ID of the products to retrieve, extracted from the URL path.
+/// * `Path(id)`: The UUID of the product to retrieve.
 /// * `current_user`: The authenticated user extracted from the JWT token.
 ///
 /// # Returns
 ///
-/// A `Json` response containing the `ProductResponse` if found and accessible by the user, otherwise a 404 Not Found error.
+/// A `Json` response containing the requested `ProductResponse`.
 #[axum::debug_handler]
 pub async fn get_by_id(
   State(state): State<Arc<AppState>>,
-  Path(id): Path<String>,
+  Path(id): Path<Uuid>,
   current_user: CurrentUser,
+  WorkspaceContext(workspace_id): WorkspaceContext, // Extracted from request headers
 ) -> AppResult<Json<ApiResponse<ProductResponse>>> {
   let repository = &state.product_repository;
 
-  // Parse UUID with global error handling
-  let id = id.parse::<Uuid>()?;
+  tracing::debug!(
+    "Fetching product with id: {} for user: {} in workspace: {}",
+    id,
+    current_user.user_id,
+    workspace_id
+  );
 
-  tracing::debug!("Fetching products with ID: {} for user: {}", id, current_user.user_id);
+  // Check workspace permissions
+  let workspace_repository = &state.workspace_repository;
+  if !check_workspace_permission(workspace_repository, workspace_id, current_user.user_id, WorkspaceRole::Member).await? {
+    return Err(AppError::Authorization("You don't have permission to access this workspace".to_string()));
+  }
 
-  let products = repository.find_by_id_and_user(id, current_user.user_id).await?.ok_or_else(|| {
-    AppError::NotFound(NotFoundError {
-      resource: "Product".to_string(),
-      id: Some(id),
-    })
-  })?;
-
-  tracing::debug!("Product with ID {} found for user {}", id, current_user.user_id);
-
-  let response = ApiResponse::success(ProductResponse::from(products), "Product retrieved successfully");
-  Ok(Json(response))
-}
-
-/// Handles the request to update an existing products for the authenticated user.
-///
-/// # Arguments
-///
-/// * `State(state)`: The shared application state.
-/// * `Path(id)`: The ID of the products to update.
-/// * `current_user`: The authenticated user extracted from the JWT token.
-/// * `payload`: The JSON payload with the fields to update.
-///
-/// # Returns
-///
-/// A `Json` response containing the updated `ProductResponse` if successful, otherwise a 404 error.
-#[axum::debug_handler]
-pub async fn update(
-  State(state): State<Arc<AppState>>,
-  Path(id): Path<String>,
-  current_user: CurrentUser,
-  payload: Result<Json<UpdateProductRequest>, JsonRejection>,
-) -> AppResult<Json<ApiResponse<ProductResponse>>> {
-  let repository = &state.product_repository;
-  let Json(payload) = payload?;
-
-  // Parse UUID with global error handling
-  let id = id.parse::<Uuid>()?;
-
-  tracing::debug!("Updating products with ID: {} for user: {}", id, current_user.user_id);
-
-  // Check if workspace_id is provided and validate access
-  if let Some(workspace_id) = payload.workspace_id {
-    let workspace_repository = &state.workspace_repository;
-    if !check_workspace_permission(&workspace_repository, workspace_id, current_user.user_id, WorkspaceRole::Member).await? {
-      return Err(AppError::Authorization(
-        "You don't have permission to update products in this workspace".to_string(),
-      ));
-    }
-
-    let updated_products = repository
-      .update_by_workspace(id, workspace_id, payload, current_user.user_id)
-      .await?
-      .ok_or_else(|| {
-        AppError::NotFound(NotFoundError {
-          resource: "Product".to_string(),
-          id: Some(id),
-        })
-      })?;
-
-    tracing::info!("Product with ID {} updated successfully for workspace {}", id, workspace_id);
-    let response = ApiResponse::success(ProductResponse::from(updated_products), "Product updated successfully");
-    Ok(Json(response))
-  } else {
-    let updated_products = repository.update(id, payload, current_user.user_id).await?.ok_or_else(|| {
+  let product = repository
+    .find_by_id_and_workspace(id, workspace_id, current_user.user_id)
+    .await?
+    .ok_or_else(|| {
       AppError::NotFound(NotFoundError {
         resource: "Product".to_string(),
         id: Some(id),
       })
     })?;
 
-    tracing::info!("Product with ID {} updated successfully for user {}", id, current_user.user_id);
-    let response = ApiResponse::success(ProductResponse::from(updated_products), "Product updated successfully");
-    Ok(Json(response))
-  }
+  let response = ApiResponse::success(ProductResponse::from(product), "Product retrieved successfully");
+  Ok(Json(response))
 }
 
-/// Handles the request to delete a products by its ID for the authenticated user.
+/// Handles the request to update an existing product.
+/// This handler ensures that the product belongs to the user's workspace.
 ///
 /// # Arguments
 ///
 /// * `State(state)`: The shared application state.
-/// * `Path(id)`: The ID of the products to delete.
+/// * `Path(id)`: The UUID of the product to update.
+/// * `current_user`: The authenticated user extracted from the JWT token.
+/// * `payload`: The JSON payload containing the updated product data.
+///
+/// # Returns
+///
+/// A `Json` response containing the updated `ProductResponse`.
+#[axum::debug_handler]
+pub async fn update(
+  State(state): State<Arc<AppState>>,
+  Path(id): Path<Uuid>,
+  current_user: CurrentUser,
+  WorkspaceContext(workspace_id): WorkspaceContext, // Extracted from request headers
+  payload: Result<Json<UpdateProductRequest>, JsonRejection>,
+) -> AppResult<Json<ApiResponse<ProductResponse>>> {
+  let repository = &state.product_repository;
+  let Json(payload) = payload?;
+
+  tracing::debug!(
+    "Updating product with id: {} for user: {} in workspace: {}",
+    id,
+    current_user.user_id,
+    workspace_id
+  );
+
+  // Check workspace permissions
+  let workspace_repository = &state.workspace_repository;
+  if !check_workspace_permission(workspace_repository, workspace_id, current_user.user_id, WorkspaceRole::Member).await? {
+    return Err(AppError::Authorization(
+      "You don't have permission to update products in this workspace".to_string(),
+    ));
+  }
+
+  // Check if the product exists before updating
+  if repository
+    .find_by_id_and_workspace(id, workspace_id, current_user.user_id)
+    .await?
+    .is_none()
+  {
+    return Err(AppError::NotFound(NotFoundError {
+      resource: "Product".to_string(),
+      id: Some(id),
+    }));
+  }
+
+  // If updating code, check if the new code already exists (excluding current product)
+  if let Some(ref new_code) = payload.code {
+    let existing_product = repository.find_by_code_and_workspace(new_code, workspace_id).await?;
+    if let Some(existing) = existing_product {
+      if existing.id != id {
+        return Err(AppError::Conflict("Product code already exists in this workspace".to_string()));
+      }
+    }
+  }
+
+  let updated_product = repository
+    .update_by_workspace(id, workspace_id, payload, current_user.user_id)
+    .await?
+    .ok_or_else(|| {
+      AppError::NotFound(NotFoundError {
+        resource: "Product".to_string(),
+        id: Some(id),
+      })
+    })?;
+
+  tracing::info!(
+    "Product updated successfully: id={}, code={}, name={}",
+    updated_product.id,
+    updated_product.code,
+    updated_product.name
+  );
+
+  let response = ApiResponse::success(ProductResponse::from(updated_product), "Product updated successfully");
+  Ok(Json(response))
+}
+
+/// Handles the request to delete a product.
+/// This handler ensures that the product belongs to the user's workspace.
+///
+/// # Arguments
+///
+/// * `State(state)`: The shared application state.
+/// * `Path(id)`: The UUID of the product to delete.
 /// * `current_user`: The authenticated user extracted from the JWT token.
 ///
 /// # Returns
 ///
-/// A `Json` response with a success message if the deletion was successful, otherwise a 404 error.
+/// A `Json` response confirming the deletion.
 #[axum::debug_handler]
-pub async fn delete(State(state): State<Arc<AppState>>, Path(id): Path<String>, current_user: CurrentUser) -> AppResult<Json<ApiResponse<()>>> {
+pub async fn delete(
+  State(state): State<Arc<AppState>>,
+  Path(id): Path<Uuid>,
+  current_user: CurrentUser,
+  WorkspaceContext(workspace_id): WorkspaceContext, // Extracted from request headers
+) -> AppResult<Json<ApiResponse<()>>> {
   let repository = &state.product_repository;
 
-  // Parse UUID with global error handling
-  let id = id.parse::<Uuid>()?;
+  tracing::debug!(
+    "Deleting product with id: {} for user: {} in workspace: {}",
+    id,
+    current_user.user_id,
+    workspace_id
+  );
 
-  tracing::debug!("Deleting products with ID: {} for user: {}", id, current_user.user_id);
+  // Check workspace permissions
+  let workspace_repository = &state.workspace_repository;
+  if !check_workspace_permission(workspace_repository, workspace_id, current_user.user_id, WorkspaceRole::Member).await? {
+    return Err(AppError::Authorization(
+      "You don't have permission to delete products in this workspace".to_string(),
+    ));
+  }
 
-  let deleted = repository.delete(id, current_user.user_id).await?;
+  let deleted = repository.delete_by_workspace_and_user(id, workspace_id, current_user.user_id).await?;
 
   if !deleted {
     return Err(AppError::NotFound(NotFoundError {
@@ -258,7 +358,7 @@ pub async fn delete(State(state): State<Arc<AppState>>, Path(id): Path<String>, 
     }));
   }
 
-  tracing::info!("Product with ID {} deleted successfully for user {}", id, current_user.user_id);
+  tracing::info!("Product deleted successfully: id={}", id);
 
   let response = ApiResponse::success((), "Product deleted successfully");
   Ok(Json(response))

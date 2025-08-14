@@ -368,9 +368,7 @@ impl From<sqlx::Error> for AppError {
         id: None,
       }),
       sqlx::Error::ColumnNotFound(col_name) => {
-        AppError::Database(DatabaseError::ColumnNotFound(
-          format!("Column '{}' not found in query result", col_name)
-        ))
+        AppError::Database(DatabaseError::ColumnNotFound(format!("Column '{}' not found in query result", col_name)))
       }
       sqlx::Error::Database(db_err) => {
         if let Some(code) = db_err.code() {
@@ -382,14 +380,12 @@ impl From<sqlx::Error> for AppError {
             }));
           }
         }
-        
+
         // Check for schema-related errors
         if db_err.message().contains("column") && (db_err.message().contains("does not exist") || db_err.message().contains("not found")) {
-          return AppError::Database(DatabaseError::SchemaMismatch(
-            format!("Database schema error: {}", db_err.message())
-          ));
+          return AppError::Database(DatabaseError::SchemaMismatch(format!("Database schema error: {}", db_err.message())));
         }
-        
+
         AppError::Database(DatabaseError::QueryFailed(err.to_string()))
       }
       _ => AppError::Database(DatabaseError::QueryFailed(err.to_string())),
@@ -426,7 +422,7 @@ impl From<JsonRejection> for AppError {
 impl From<QueryRejection> for AppError {
   fn from(rejection: QueryRejection) -> Self {
     let error_msg = rejection.to_string();
-    
+
     // Make the error message more user-friendly
     if error_msg.contains("unknown field") {
       // Extract field name from error message
@@ -507,9 +503,7 @@ impl AppError {
 
   /// Create a column not found error.
   pub fn column_not_found(column_name: &str) -> Self {
-    AppError::Database(DatabaseError::ColumnNotFound(
-      format!("Column '{}' not found", column_name)
-    ))
+    AppError::Database(DatabaseError::ColumnNotFound(format!("Column '{}' not found", column_name)))
   }
 
   /// Enhanced error handling for SQLx errors with context
@@ -521,7 +515,7 @@ impl AppError {
       }
       sqlx::Error::Database(db_err) => {
         let message = db_err.message();
-        
+
         // Check for schema-related errors
         if message.contains("column") && message.contains("does not exist") {
           tracing::error!("Schema mismatch in query: {}, error: {}", query_context, message);
@@ -534,12 +528,10 @@ impl AppError {
           Self::Database(DatabaseError::QueryFailed(message.to_string()))
         }
       }
-      sqlx::Error::RowNotFound => {
-        Self::NotFound(NotFoundError {
-          resource: "Resource".to_string(),
-          id: None,
-        })
-      }
+      sqlx::Error::RowNotFound => Self::NotFound(NotFoundError {
+        resource: "Resource".to_string(),
+        id: None,
+      }),
       _ => {
         let error_msg = error.to_string();
         tracing::error!("SQLx error in query: {}, error: {}", query_context, error_msg);

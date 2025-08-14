@@ -17,7 +17,10 @@ use crate::{
 };
 use axum::{
   Json,
-  extract::{Path, Query, State, rejection::{JsonRejection, QueryRejection}},
+  extract::{
+    Path, Query, State,
+    rejection::{JsonRejection, QueryRejection},
+  },
   http::StatusCode,
 };
 use uuid::Uuid;
@@ -76,8 +79,10 @@ pub async fn get_list(
   }
 
   tracing::debug!(
-    "Fetching contacts for workspace_id {}: page={}, limit={}, has_filters={}", 
-    workspace_id, page, limit, 
+    "Fetching contacts for workspace_id {}: page={}, limit={}, has_filters={}",
+    workspace_id,
+    page,
+    limit,
     super::contact_query_builder::has_filters(&params)
   );
 
@@ -89,7 +94,9 @@ pub async fn get_list(
 
   let (contacts, total) = if super::contact_query_builder::has_filters(&params) {
     let filters = ContactFilters::from(params);
-    repository.find_by_filters_paginated(workspace_id, current_user.user_id, page, limit, filters).await?
+    repository
+      .find_by_filters_paginated(workspace_id, current_user.user_id, page, limit, filters)
+      .await?
   } else {
     repository
       .find_all_by_workspace_paginated(workspace_id, current_user.user_id, page, limit)

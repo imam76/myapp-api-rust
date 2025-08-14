@@ -31,7 +31,7 @@ pub trait ContactRepository {
   // Optional methods for specific use cases
   async fn find_by_type_and_workspace(&self, contact_type: &str, workspace_id: Uuid, user_id: Uuid) -> AppResult<Vec<Contact>>;
   async fn find_active_by_workspace(&self, workspace_id: Uuid, user_id: Uuid) -> AppResult<Vec<Contact>>;
-  
+
   // Advanced filtering method
   async fn find_by_filters_paginated(
     &self,
@@ -330,16 +330,12 @@ impl ContactRepository for SqlxContactRepository {
     filters: ContactFilters,
   ) -> AppResult<(Vec<Contact>, u64)> {
     use super::contact_query_builder::ContactQueryBuilder;
-    
+
     let offset = (page - 1) * limit;
-    
+
     // Build queries using Sea Query
-    let (mut select_sql, count_sql) = ContactQueryBuilder::build_filtered_query(
-      workspace_id, 
-      user_id, 
-      &filters
-    );
-    
+    let (mut select_sql, count_sql) = ContactQueryBuilder::build_filtered_query(workspace_id, user_id, &filters);
+
     // Add pagination to select query
     select_sql = format!("{} LIMIT {} OFFSET {}", select_sql, limit, offset);
 
@@ -363,14 +359,11 @@ impl ContactRepository for SqlxContactRepository {
     }
 
     // Execute data query
-    let contacts = sqlx::query_as::<_, Contact>(&select_sql)
-      .fetch_all(&self.db)
-      .await
-      .map_err(|e| {
-        tracing::error!("Failed to execute filtered query: {}", e);
-        tracing::error!("Query: {}", select_sql);
-        crate::errors::AppError::from_sqlx_error(e, &select_sql)
-      })?;
+    let contacts = sqlx::query_as::<_, Contact>(&select_sql).fetch_all(&self.db).await.map_err(|e| {
+      tracing::error!("Failed to execute filtered query: {}", e);
+      tracing::error!("Query: {}", select_sql);
+      crate::errors::AppError::from_sqlx_error(e, &select_sql)
+    })?;
 
     tracing::debug!("Found {} contacts with total count {}", contacts.len(), total_count);
 
