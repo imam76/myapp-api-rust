@@ -1,5 +1,10 @@
--- Create workspace role enum
-CREATE TYPE workspace_role AS ENUM ('admin', 'member', 'viewer');
+-- Create workspace role enum (only if it doesn't exist)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'workspace_role') THEN
+        CREATE TYPE workspace_role AS ENUM ('admin', 'member', 'viewer');
+    END IF;
+END $$;
 
 -- Create workspaces table
 CREATE TABLE IF NOT EXISTS workspaces (
@@ -22,6 +27,10 @@ CREATE TABLE IF NOT EXISTS workspace_users (
 
 -- Add workspace_id to contacts table (nullable for backward compatibility)
 ALTER TABLE contacts ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES workspaces(id) ON DELETE SET NULL;
+
+-- Add workspace_id to products and product_categories tables (nullable for backward compatibility)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES workspaces(id) ON DELETE SET NULL;
+ALTER TABLE product_categories ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES workspaces(id) ON DELETE SET NULL;
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_workspaces_owner_id ON workspaces(owner_id);

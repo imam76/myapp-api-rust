@@ -1,4 +1,4 @@
--- Add up migration script here
+-- Create products table
 CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(20) NOT NULL UNIQUE,
@@ -32,14 +32,14 @@ CREATE TABLE IF NOT EXISTS products (
 );
 
 -- Create indexes for better performance
-CREATE INDEX idx_products_code ON products(code);
-CREATE INDEX idx_products_name ON products(name);
-CREATE INDEX idx_products_sku ON products(sku);
-CREATE INDEX idx_products_barcode ON products(barcode);
-CREATE INDEX idx_products_category_id ON products(category_id);
-CREATE INDEX idx_products_supplier_id ON products(supplier_id);
-CREATE INDEX idx_products_is_active ON products(is_active);
-CREATE INDEX idx_products_created_at ON products(created_at);
+CREATE INDEX IF NOT EXISTS idx_products_code ON products(code);
+CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
+CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
+CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
+CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_supplier_id ON products(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_products_is_active ON products(is_active);
+CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at);
 
 -- Create trigger to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -48,7 +48,7 @@ BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE 'plpgsql';
 
 CREATE TRIGGER update_products_updated_at 
     BEFORE UPDATE ON products 
@@ -69,10 +69,10 @@ CREATE TABLE IF NOT EXISTS product_categories (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_product_categories_code ON product_categories(code);
-CREATE INDEX idx_product_categories_name ON product_categories(name);
-CREATE INDEX idx_product_categories_parent_id ON product_categories(parent_id);
-CREATE INDEX idx_product_categories_is_active ON product_categories(is_active);
+CREATE INDEX IF NOT EXISTS idx_product_categories_code ON product_categories(code);
+CREATE INDEX IF NOT EXISTS idx_product_categories_name ON product_categories(name);
+CREATE INDEX IF NOT EXISTS idx_product_categories_parent_id ON product_categories(parent_id);
+CREATE INDEX IF NOT EXISTS idx_product_categories_is_active ON product_categories(is_active);
 
 CREATE TRIGGER update_product_categories_updated_at 
     BEFORE UPDATE ON product_categories 
@@ -83,7 +83,3 @@ CREATE TRIGGER update_product_categories_updated_at
 ALTER TABLE products 
 ADD CONSTRAINT fk_products_category 
 FOREIGN KEY (category_id) REFERENCES product_categories(id);
-
--- Add workspace_id to products and product_categories tables (nullable for backward compatibility)
-ALTER TABLE products ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES workspaces(id) ON DELETE SET NULL;
-ALTER TABLE product_categories ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES workspaces(id) ON DELETE SET NULL;

@@ -15,11 +15,11 @@ CREATE TABLE IF NOT EXISTS contacts (
 );
 
 -- Create indexes for better performance
-CREATE INDEX idx_contacts_code ON contacts(code);
-CREATE INDEX idx_contacts_email ON contacts(email);
-CREATE INDEX idx_contacts_type ON contacts(type);
-CREATE INDEX idx_contacts_is_active ON contacts(is_active);
-CREATE INDEX idx_contacts_created_at ON contacts(created_at);
+CREATE INDEX IF NOT EXISTS idx_contacts_code ON contacts(code);
+CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email);
+CREATE INDEX IF NOT EXISTS idx_contacts_type ON contacts(type);
+CREATE INDEX IF NOT EXISTS idx_contacts_is_active ON contacts(is_active);
+CREATE INDEX IF NOT EXISTS idx_contacts_created_at ON contacts(created_at);
 
 -- Create trigger to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -28,7 +28,7 @@ BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE 'plpgsql';
 
 CREATE TRIGGER update_contacts_updated_at 
     BEFORE UPDATE ON contacts 

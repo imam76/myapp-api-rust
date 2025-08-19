@@ -7,6 +7,9 @@ DROP INDEX IF EXISTS idx_workspaces_owner_id;
 -- Remove workspace_id column from contacts
 ALTER TABLE contacts DROP COLUMN IF EXISTS workspace_id;
 
+-- Remove workspace_id column from products
+ALTER TABLE products DROP COLUMN IF EXISTS workspace_id;
+
 -- Drop workspace tables
 DROP TABLE IF EXISTS workspace_users;
 DROP TABLE IF EXISTS workspaces;
