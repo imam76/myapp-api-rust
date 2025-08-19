@@ -1,0 +1,103 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE contacts \n        SET \n          code = COALESCE($1, code),\n          name = COALESCE($2, name),\n          email = COALESCE($3, email),\n          position = COALESCE($4, position),\n          type = COALESCE($5, type),\n          address = COALESCE($6, address),\n          is_active = COALESCE($7, is_active),\n          updated_by = $8,\n          updated_at = NOW()\n        WHERE id = $9 AND workspace_id = $10\n        RETURNING \n          id, code, name, email, position, type as contact_type, \n          address, is_active, workspace_id, created_by, updated_by, created_at, updated_at\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "position",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "contact_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "address",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "is_active",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "workspace_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 9,
+        "name": "created_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 10,
+        "name": "updated_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Text",
+        "Bool",
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "ed5cb2937443726b974938c29fca52a0b869a540dacac8bcfc117f14100128c4"
+}
