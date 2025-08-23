@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(20) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
-    category_id UUID,
+    category_id UUID REFERENCES product_categories(id),
     base_unit VARCHAR(50) NOT NULL,
     unit_on_report_preview VARCHAR(50),
     selling_price NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
