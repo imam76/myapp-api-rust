@@ -1,8 +1,7 @@
--- Drop trigger first
-DROP TRIGGER IF EXISTS update_contacts_updated_at ON contacts;
+-- Down migration: contacts
 
--- Drop function
-DROP FUNCTION IF EXISTS update_updated_at_column();
+-- Drop trigger
+DROP TRIGGER IF EXISTS update_contacts_updated_at ON contacts;
 
 -- Drop indexes
 DROP INDEX IF EXISTS idx_contacts_code;
@@ -11,5 +10,8 @@ DROP INDEX IF EXISTS idx_contacts_type;
 DROP INDEX IF EXISTS idx_contacts_is_active;
 DROP INDEX IF EXISTS idx_contacts_created_at;
 
--- Drop contacts table
+-- Remove workspace_id column if present
+ALTER TABLE contacts DROP COLUMN IF EXISTS workspace_id;
+
+-- Drop table
 DROP TABLE IF EXISTS contacts;

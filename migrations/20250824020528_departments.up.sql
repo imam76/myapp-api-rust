@@ -1,4 +1,4 @@
--- Create department status enum
+-- Up migration: departments
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'department_status') THEN
@@ -6,7 +6,6 @@ BEGIN
     END IF;
 END $$;
 
--- Create departments table
 CREATE TABLE IF NOT EXISTS departments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(20) NOT NULL,
@@ -14,25 +13,17 @@ CREATE TABLE IF NOT EXISTS departments (
     description TEXT,
     parent_department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
     manager_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    budget NUMERIC(15, 2) DEFAULT 0.00,
+    budget NUMERIC(15,2) DEFAULT 0.00,
     status department_status NOT NULL DEFAULT 'active',
-    
-    -- Workspace support
     workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    
-    -- Metadata
     created_by UUID REFERENCES users(id),
     updated_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    
-    -- Constraints
     UNIQUE(code, workspace_id),
     UNIQUE(name, workspace_id)
 );
 
--- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_departments_code ON departments(code);
 CREATE INDEX IF NOT EXISTS idx_departments_name ON departments(name);
 CREATE INDEX IF NOT EXISTS idx_departments_workspace_id ON departments(workspace_id);
@@ -41,14 +32,8 @@ CREATE INDEX IF NOT EXISTS idx_departments_parent_department_id ON departments(p
 CREATE INDEX IF NOT EXISTS idx_departments_manager_id ON departments(manager_id);
 CREATE INDEX IF NOT EXISTS idx_departments_status ON departments(status);
 
--- Create trigger for updating updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_departments_updated_at BEFORE UPDATE ON departments
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_departments_updated_at
+    BEFORE UPDATE ON departments
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+CREATE INDEX IF NOT EXISTS idx_departments_parent_department_id ON departments(parent_department_id);

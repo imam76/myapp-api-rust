@@ -1,3 +1,5 @@
+-- Down migration: taxes
+
 -- Drop trigger
 DROP TRIGGER IF EXISTS update_taxes_updated_at ON taxes;
 

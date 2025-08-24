@@ -1,3 +1,5 @@
+-- Down migration: departments
+
 -- Drop trigger
 DROP TRIGGER IF EXISTS update_departments_updated_at ON departments;
 
