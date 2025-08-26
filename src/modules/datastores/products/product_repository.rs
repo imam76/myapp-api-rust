@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::product_models::{CreateProductRequest, Product, ProductFilters, UpdateProductRequest};
+use super::product_models::{CreateProductRequest, Product, ProductFilters, TaxType, UpdateProductRequest};
 use crate::{
   AppResult,
   utils::code_generator::{CodeGenerator, CodeGeneratorConfig},
@@ -72,7 +72,7 @@ impl ProductRepository for SqlxProductRepository {
                     code, name, category_id, base_unit, unit_on_report_preview,
                     selling_price, unit_cost, supplier_id, track_inventory,
                     description, sku, barcode, minimum_stock, maximum_stock,
-                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,
+                    reorder_level, stock, tax_type, tax_rate, tax_amount,
                     workspace_id, created_by
                 )
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
@@ -80,7 +80,7 @@ impl ProductRepository for SqlxProductRepository {
                     id, code, name, category_id, base_unit, unit_on_report_preview,
                     selling_price, unit_cost, supplier_id, track_inventory,
                     description, sku, barcode, minimum_stock, maximum_stock,
-                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,
+                    reorder_level, stock, tax_type as "tax_type: TaxType", tax_rate, tax_amount,
                     is_active, workspace_id, created_by, updated_by, created_at, updated_at
             "#,
       product.code,
@@ -98,8 +98,8 @@ impl ProductRepository for SqlxProductRepository {
       product.minimum_stock,
       product.maximum_stock,
       product.reorder_level,
-      product.current_stock,
-      product.tax_type,
+      product.stock,
+      product.tax_type as Option<TaxType>,
       product.tax_rate,
       product.tax_amount,
       workspace_id,
@@ -148,7 +148,7 @@ impl ProductRepository for SqlxProductRepository {
                     id, code, name, category_id, base_unit, unit_on_report_preview,
                     selling_price, unit_cost, supplier_id, track_inventory,
                     description, sku, barcode, minimum_stock, maximum_stock,
-                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,
+                    reorder_level, stock, tax_type as "tax_type: TaxType", tax_rate, tax_amount,
                     is_active, workspace_id, created_by, updated_by, created_at, updated_at
                 FROM products
                 WHERE workspace_id = $1
@@ -184,7 +184,7 @@ impl ProductRepository for SqlxProductRepository {
                     id, code, name, category_id, base_unit, unit_on_report_preview,
                     selling_price, unit_cost, supplier_id, track_inventory,
                     description, sku, barcode, minimum_stock, maximum_stock,
-                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,
+                    reorder_level, stock, tax_type as "tax_type: TaxType", tax_rate, tax_amount,
                     is_active, workspace_id, created_by, updated_by, created_at, updated_at
                 FROM products 
                 WHERE id = $1 AND workspace_id = $2
@@ -217,7 +217,7 @@ impl ProductRepository for SqlxProductRepository {
                     id, code, name, category_id, base_unit, unit_on_report_preview,
                     selling_price, unit_cost, supplier_id, track_inventory,
                     description, sku, barcode, minimum_stock, maximum_stock,
-                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,
+                    reorder_level, stock, tax_type as "tax_type: TaxType", tax_rate, tax_amount,
                     is_active, workspace_id, created_by, updated_by, created_at, updated_at
                 FROM products 
                 WHERE code = $1 AND workspace_id = $2
@@ -262,7 +262,7 @@ impl ProductRepository for SqlxProductRepository {
                     minimum_stock = COALESCE($15, minimum_stock),
                     maximum_stock = COALESCE($16, maximum_stock),
                     reorder_level = COALESCE($17, reorder_level),
-                    current_stock = COALESCE($18, current_stock),
+                    stock = COALESCE($18, stock),
                     tax_type = COALESCE($19, tax_type),
                     tax_rate = COALESCE($20, tax_rate),
                     tax_amount = COALESCE($21, tax_amount),
@@ -274,7 +274,7 @@ impl ProductRepository for SqlxProductRepository {
                     id, code, name, category_id, base_unit, unit_on_report_preview,
                     selling_price, unit_cost, supplier_id, track_inventory,
                     description, sku, barcode, minimum_stock, maximum_stock,
-                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,
+                    reorder_level, stock, tax_type as "tax_type: TaxType", tax_rate, tax_amount,
                     is_active, workspace_id, created_by, updated_by, created_at, updated_at
             "#,
       id,
@@ -294,8 +294,8 @@ impl ProductRepository for SqlxProductRepository {
       product_data.minimum_stock,
       product_data.maximum_stock,
       product_data.reorder_level,
-      product_data.current_stock,
-      product_data.tax_type,
+      product_data.stock,
+      product_data.tax_type as Option<TaxType>,
       product_data.tax_rate,
       product_data.tax_amount,
       product_data.is_active,
@@ -382,7 +382,7 @@ impl ProductRepository for SqlxProductRepository {
                     id, code, name, category_id, base_unit, unit_on_report_preview,
                     selling_price, unit_cost, supplier_id, track_inventory,
                     description, sku, barcode, minimum_stock, maximum_stock,
-                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,
+                    reorder_level, stock, tax_type as "tax_type: TaxType", tax_rate, tax_amount,
                     is_active, workspace_id, created_by, updated_by, created_at, updated_at
                 FROM products 
                 WHERE category_id = $1 AND workspace_id = $2 AND is_active = true
@@ -416,7 +416,7 @@ impl ProductRepository for SqlxProductRepository {
                     id, code, name, category_id, base_unit, unit_on_report_preview,
                     selling_price, unit_cost, supplier_id, track_inventory,
                     description, sku, barcode, minimum_stock, maximum_stock,
-                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,
+                    reorder_level, stock, tax_type as "tax_type: TaxType", tax_rate, tax_amount,
                     is_active, workspace_id, created_by, updated_by, created_at, updated_at
                 FROM products 
                 WHERE supplier_id = $1 AND workspace_id = $2 AND is_active = true
@@ -450,7 +450,7 @@ impl ProductRepository for SqlxProductRepository {
                     id, code, name, category_id, base_unit, unit_on_report_preview,
                     selling_price, unit_cost, supplier_id, track_inventory,
                     description, sku, barcode, minimum_stock, maximum_stock,
-                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,
+                    reorder_level, stock, tax_type as "tax_type: TaxType", tax_rate, tax_amount,
                     is_active, workspace_id, created_by, updated_by, created_at, updated_at
                 FROM products 
                 WHERE workspace_id = $1 AND is_active = true
@@ -483,22 +483,22 @@ impl ProductRepository for SqlxProductRepository {
                     id, code, name, category_id, base_unit, unit_on_report_preview,
                     selling_price, unit_cost, supplier_id, track_inventory,
                     description, sku, barcode, minimum_stock, maximum_stock,
-                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,
+                    reorder_level, stock, tax_type as "tax_type: TaxType", tax_rate, tax_amount,
                     is_active, workspace_id, created_by, updated_by, created_at, updated_at
                 FROM products 
                 WHERE workspace_id = $1 
                     AND is_active = true 
                     AND track_inventory = true
-                    AND current_stock IS NOT NULL 
+                    AND stock IS NOT NULL 
                     AND reorder_level IS NOT NULL
-                    AND current_stock <= reorder_level
+                    AND stock <= reorder_level
                     AND id IN (
                       SELECT p.id FROM products p
                       JOIN workspaces w ON p.workspace_id = w.id
                       JOIN workspace_users wu ON w.id = wu.workspace_id
                       WHERE wu.user_id = $2
                     )
-                ORDER BY current_stock ASC
+                ORDER BY stock ASC
             "#,
       workspace_id,
       user_id

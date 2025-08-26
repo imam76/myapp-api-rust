@@ -105,7 +105,7 @@ pub async fn setup_state() -> Arc<AppState> {
     contact_repository: Arc::new(SqlxContactRepository::new(db_pool.clone())),
     product_repository: Arc::new(SqlxProductRepository::new(db_pool.clone())),
     auth_repository: Arc::new(AuthRepositoryImpl::new(db_pool.clone())),
-    workspace_repository: Arc::new(PostgresWorkspaceRepository::new(db_pool)),
+    workspace_repository: Arc::new(PostgresWorkspaceRepository::new(db_pool.clone())),
     jwt_secret,
   })
 }

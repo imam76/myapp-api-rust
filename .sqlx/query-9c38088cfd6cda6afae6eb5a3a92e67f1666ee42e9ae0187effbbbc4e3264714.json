@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                INSERT INTO products (\n                    code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n                    workspace_id, created_by\n                )\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)\n                RETURNING \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n            ",
+  "query": "\n                INSERT INTO products (\n                    code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, stock, tax_type, tax_rate, tax_amount,\n                    workspace_id, created_by\n                )\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)\n                RETURNING \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, stock, tax_type as \"tax_type: TaxType\", tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -85,13 +85,23 @@
       },
       {
         "ordinal": 16,
-        "name": "current_stock",
+        "name": "stock",
         "type_info": "Int4"
       },
       {
         "ordinal": 17,
-        "name": "tax_type",
-        "type_info": "Varchar"
+        "name": "tax_type: TaxType",
+        "type_info": {
+          "Custom": {
+            "name": "tax_type",
+            "kind": {
+              "Enum": [
+                "percentage",
+                "fixed_amount"
+              ]
+            }
+          }
+        }
       },
       {
         "ordinal": 18,
@@ -152,7 +162,17 @@
         "Int4",
         "Int4",
         "Int4",
-        "Varchar",
+        {
+          "Custom": {
+            "name": "tax_type",
+            "kind": {
+              "Enum": [
+                "percentage",
+                "fixed_amount"
+              ]
+            }
+          }
+        },
         "Numeric",
         "Numeric",
         "Uuid",
@@ -188,5 +208,5 @@
       false
     ]
   },
-  "hash": "d3ac2292d4d021867a2416221fb5c7d7b546dc0446291b44c884cc2e82f9e2eb"
+  "hash": "9c38088cfd6cda6afae6eb5a3a92e67f1666ee42e9ae0187effbbbc4e3264714"
 }

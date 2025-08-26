@@ -12,7 +12,7 @@ pub struct Contact {
   pub code: String,
   pub name: String,
   pub email: String,
-  pub position: String,
+  pub position: Option<String>,
   #[sqlx(rename = "type")]
   pub contact_type: String, // Maps to database column "type" to avoid Rust keyword conflict
   pub address: Option<String>,
@@ -38,8 +38,7 @@ pub struct CreateContactRequest {
   pub name: String,
   #[validate(email(message = "Invalid email format"))]
   pub email: String,
-  #[validate(length(min = 1, message = "Position is required"))]
-  pub position: String,
+  pub position: Option<String>,
   #[validate(length(min = 1, message = "Contact type is required"))]
   pub contact_type: String,
   pub address: Option<String>,
@@ -69,7 +68,7 @@ pub struct ContactResponse {
   pub code: String,
   pub name: String,
   pub email: String,
-  pub position: String,
+  pub position: Option<String>,
   pub contact_type: String,
   pub address: Option<String>,
   pub is_active: bool,

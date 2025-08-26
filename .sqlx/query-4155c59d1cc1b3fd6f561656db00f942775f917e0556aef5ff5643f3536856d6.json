@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n                FROM products \n                WHERE code = $1 AND workspace_id = $2\n            ",
+  "query": "\n                SELECT \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, stock, tax_type as \"tax_type: TaxType\", tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n                FROM products \n                WHERE code = $1 AND workspace_id = $2\n            ",
   "describe": {
     "columns": [
       {
@@ -85,13 +85,23 @@
       },
       {
         "ordinal": 16,
-        "name": "current_stock",
+        "name": "stock",
         "type_info": "Int4"
       },
       {
         "ordinal": 17,
-        "name": "tax_type",
-        "type_info": "Varchar"
+        "name": "tax_type: TaxType",
+        "type_info": {
+          "Custom": {
+            "name": "tax_type",
+            "kind": {
+              "Enum": [
+                "percentage",
+                "fixed_amount"
+              ]
+            }
+          }
+        }
       },
       {
         "ordinal": 18,
@@ -169,5 +179,5 @@
       false
     ]
   },
-  "hash": "90cfb9f1f80a976adcbff48593495c6ea3183dd5cb2926ac4c245468daadf1d3"
+  "hash": "4155c59d1cc1b3fd6f561656db00f942775f917e0556aef5ff5643f3536856d6"
 }

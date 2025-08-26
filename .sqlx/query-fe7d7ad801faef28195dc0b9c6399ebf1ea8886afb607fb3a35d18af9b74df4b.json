@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n                FROM products \n                WHERE supplier_id = $1 AND workspace_id = $2 AND is_active = true\n                  AND id IN (\n                    SELECT p.id FROM products p\n                    JOIN workspaces w ON p.workspace_id = w.id\n                    JOIN workspace_users wu ON w.id = wu.workspace_id\n                    WHERE wu.user_id = $3\n                  )\n                ORDER BY name ASC\n            ",
+  "query": "\n                SELECT \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, stock, tax_type as \"tax_type: TaxType\", tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n                FROM products \n                WHERE workspace_id = $1 AND is_active = true\n                  AND id IN (\n                    SELECT p.id FROM products p\n                    JOIN workspaces w ON p.workspace_id = w.id\n                    JOIN workspace_users wu ON w.id = wu.workspace_id\n                    WHERE wu.user_id = $2\n                  )\n                ORDER BY name ASC\n            ",
   "describe": {
     "columns": [
       {
@@ -85,13 +85,23 @@
       },
       {
         "ordinal": 16,
-        "name": "current_stock",
+        "name": "stock",
         "type_info": "Int4"
       },
       {
         "ordinal": 17,
-        "name": "tax_type",
-        "type_info": "Varchar"
+        "name": "tax_type: TaxType",
+        "type_info": {
+          "Custom": {
+            "name": "tax_type",
+            "kind": {
+              "Enum": [
+                "percentage",
+                "fixed_amount"
+              ]
+            }
+          }
+        }
       },
       {
         "ordinal": 18,
@@ -137,7 +147,6 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid",
         "Uuid"
       ]
     },
@@ -170,5 +179,5 @@
       false
     ]
   },
-  "hash": "a45bbe19a5130e5db052e11f5df35fc083bd80d64b3354439489a30a962f487c"
+  "hash": "fe7d7ad801faef28195dc0b9c6399ebf1ea8886afb607fb3a35d18af9b74df4b"
 }

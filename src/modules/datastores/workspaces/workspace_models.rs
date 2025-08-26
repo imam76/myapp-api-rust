@@ -9,6 +9,8 @@ pub struct Workspace {
   pub name: String,
   pub description: Option<String>,
   pub owner_id: Uuid,
+  pub created_by: Option<Uuid>,
+  pub updated_by: Option<Uuid>,
   pub created_at: DateTime<Utc>,
   pub updated_at: DateTime<Utc>,
 }

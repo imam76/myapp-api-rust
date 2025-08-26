@@ -61,6 +61,7 @@ pub enum AuthError {
   MissingToken,
   /// The provided token is invalid, malformed, or cannot be parsed.
   InvalidToken,
+  InvalidWorkspace,
   /// The provided token has expired.
   ExpiredToken,
 }
@@ -165,12 +166,19 @@ impl IntoResponse for AppError {
           None,
           Some("AUTH_003".to_string()),
         ),
+        AuthError::InvalidWorkspace => (
+          StatusCode::UNAUTHORIZED,
+          "WORKSPACE_INVALID",
+          "Invalid workspace access or workspace not found".to_string(),
+          None,
+          Some("AUTH_004".to_string()),
+        ),
         AuthError::ExpiredToken => (
           StatusCode::UNAUTHORIZED,
           "TOKEN_EXPIRED",
           "Authentication token has expired".to_string(),
           None,
-          Some("AUTH_004".to_string()),
+          Some("AUTH_005".to_string()),
         ),
       },
       AppError::Authorization(msg) => (
@@ -313,6 +321,7 @@ impl fmt::Display for AuthError {
       AuthError::InvalidCredentials => write!(f, "Invalid email or password"),
       AuthError::MissingToken => write!(f, "Authentication token is missing"),
       AuthError::InvalidToken => write!(f, "Authentication token is invalid"),
+      AuthError::InvalidWorkspace => write!(f, "Invalid workspace access or workspace not found"),
       AuthError::ExpiredToken => write!(f, "Authentication token has expired"),
     }
   }

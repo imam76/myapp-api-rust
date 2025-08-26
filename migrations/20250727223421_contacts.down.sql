@@ -9,6 +9,7 @@ DROP INDEX IF EXISTS idx_contacts_email;
 DROP INDEX IF EXISTS idx_contacts_type;
 DROP INDEX IF EXISTS idx_contacts_is_active;
 DROP INDEX IF EXISTS idx_contacts_created_at;
+DROP INDEX IF EXISTS idx_contacts_workspace_id;
 
 -- Remove workspace_id column if present
 ALTER TABLE contacts DROP COLUMN IF EXISTS workspace_id;

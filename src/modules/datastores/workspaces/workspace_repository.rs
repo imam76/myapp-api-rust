@@ -48,12 +48,13 @@ impl WorkspaceRepository for PostgresWorkspaceRepository {
     let workspace = sqlx::query_as!(
       Workspace,
       r#"
-        INSERT INTO workspaces (name, description, owner_id)
-        VALUES ($1, $2, $3)
-        RETURNING *
+        INSERT INTO workspaces (name, description, owner_id, created_by)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, name, description, owner_id, created_by, updated_by, created_at, updated_at
         "#,
       payload.name,
       payload.description,
+      owner_id,
       owner_id
     )
     .fetch_one(&mut *tx)
@@ -86,13 +87,14 @@ impl WorkspaceRepository for PostgresWorkspaceRepository {
     let workspace = sqlx::query_as!(
       Workspace,
       r#"
-            INSERT INTO workspaces (id, name, description, owner_id)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, name, description, owner_id, created_at, updated_at
+            INSERT INTO workspaces (id, name, description, owner_id, created_by)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id, name, description, owner_id, created_by, updated_by, created_at, updated_at
             "#,
       workspace_id,
       request.name,
       request.description,
+      owner_id,
       owner_id
     )
     .fetch_one(&mut *tx)
@@ -120,7 +122,7 @@ impl WorkspaceRepository for PostgresWorkspaceRepository {
     let workspace = sqlx::query_as!(
       Workspace,
       r#"
-            SELECT id, name, description, owner_id, created_at, updated_at
+            SELECT id, name, description, owner_id, created_by, updated_by, created_at, updated_at
             FROM workspaces
             WHERE id = $1
             "#,
@@ -142,7 +144,7 @@ impl WorkspaceRepository for PostgresWorkspaceRepository {
                 description = COALESCE($3, description),
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = $1
-            RETURNING id, name, description, owner_id, created_at, updated_at
+            RETURNING id, name, description, owner_id, created_by, updated_by, created_at, updated_at
             "#,
       workspace_id,
       request.name,
@@ -175,7 +177,7 @@ impl WorkspaceRepository for PostgresWorkspaceRepository {
   async fn get_user_workspaces(&self, user_id: Uuid) -> Result<Vec<WorkspaceWithRole>, AppError> {
     let workspaces = sqlx::query!(
       r#"
-            SELECT w.id, w.name, w.description, w.owner_id, w.created_at, w.updated_at,
+            SELECT w.id, w.name, w.description, w.owner_id, w.created_by, w.updated_by, w.created_at, w.updated_at,
                    wu.role as "role!: WorkspaceRole"
             FROM workspaces w
             JOIN workspace_users wu ON w.id = wu.workspace_id
@@ -193,6 +195,8 @@ impl WorkspaceRepository for PostgresWorkspaceRepository {
         name: row.name,
         description: row.description,
         owner_id: row.owner_id,
+        created_by: row.created_by,
+        updated_by: row.updated_by,
         created_at: row.created_at,
         updated_at: row.updated_at,
       },

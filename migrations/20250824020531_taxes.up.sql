@@ -8,7 +8,7 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS taxes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(20) NOT NULL,
+    code VARCHAR(20) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     tax_type tax_type NOT NULL DEFAULT 'percentage',
@@ -22,19 +22,22 @@ CREATE TABLE IF NOT EXISTS taxes (
     updated_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(code, workspace_id),
     CHECK (tax_rate >= 0),
     CHECK (tax_amount >= 0)
 );
 
-CREATE INDEX IF NOT EXISTS idx_taxes_code ON taxes(code);
 CREATE INDEX IF NOT EXISTS idx_taxes_name ON taxes(name);
 CREATE INDEX IF NOT EXISTS idx_taxes_workspace_id ON taxes(workspace_id);
-CREATE INDEX IF NOT EXISTS idx_taxes_user_id ON taxes(user_id);
 CREATE INDEX IF NOT EXISTS idx_taxes_is_active ON taxes(is_active);
 
 CREATE TRIGGER update_taxes_updated_at
     BEFORE UPDATE ON taxes
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
-CREATE INDEX IF NOT EXISTS idx_taxes_code ON taxes(code);
+
+-- enable Row Level Security
+ALTER TABLE taxes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY taxes_policy ON taxes
+    FOR ALL
+    USING (workspace_id = current_setting('app.current_workspace_id', true)::UUID)
+    WITH CHECK (workspace_id = current_setting('app.current_workspace_id', true)::UUID);

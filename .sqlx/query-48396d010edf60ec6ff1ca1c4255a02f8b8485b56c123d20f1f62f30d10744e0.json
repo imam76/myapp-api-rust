@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n                FROM products \n                WHERE id = $1 AND workspace_id = $2\n                  AND id IN (\n                    SELECT p.id FROM products p\n                    JOIN workspaces w ON p.workspace_id = w.id\n                    JOIN workspace_users wu ON w.id = wu.workspace_id\n                    WHERE wu.user_id = $3\n                  )\n            ",
+  "query": "\n                SELECT \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, stock, tax_type as \"tax_type: TaxType\", tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n                FROM products \n                WHERE id = $1 AND workspace_id = $2\n                  AND id IN (\n                    SELECT p.id FROM products p\n                    JOIN workspaces w ON p.workspace_id = w.id\n                    JOIN workspace_users wu ON w.id = wu.workspace_id\n                    WHERE wu.user_id = $3\n                  )\n            ",
   "describe": {
     "columns": [
       {
@@ -85,13 +85,23 @@
       },
       {
         "ordinal": 16,
-        "name": "current_stock",
+        "name": "stock",
         "type_info": "Int4"
       },
       {
         "ordinal": 17,
-        "name": "tax_type",
-        "type_info": "Varchar"
+        "name": "tax_type: TaxType",
+        "type_info": {
+          "Custom": {
+            "name": "tax_type",
+            "kind": {
+              "Enum": [
+                "percentage",
+                "fixed_amount"
+              ]
+            }
+          }
+        }
       },
       {
         "ordinal": 18,
@@ -170,5 +180,5 @@
       false
     ]
   },
-  "hash": "0f1dfe8181608dbe5aaf0a8e20f44584f2c6b56186bf07582614c7e22e0727c4"
+  "hash": "48396d010edf60ec6ff1ca1c4255a02f8b8485b56c123d20f1f62f30d10744e0"
 }

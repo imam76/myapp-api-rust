@@ -8,7 +8,7 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS projects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(20) NOT NULL,
+    code VARCHAR(20) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
@@ -26,15 +26,11 @@ CREATE TABLE IF NOT EXISTS projects (
     created_by UUID REFERENCES users(id),
     updated_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(code, workspace_id),
-    UNIQUE(name, workspace_id)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_projects_code ON projects(code);
 CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name);
 CREATE INDEX IF NOT EXISTS idx_projects_workspace_id ON projects(workspace_id);
-CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_projects_department_id ON projects(department_id);
 CREATE INDEX IF NOT EXISTS idx_projects_manager_id ON projects(manager_id);
 CREATE INDEX IF NOT EXISTS idx_projects_client_contact_id ON projects(client_contact_id);
@@ -46,4 +42,11 @@ CREATE TRIGGER update_projects_updated_at
     BEFORE UPDATE ON projects
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
-CREATE INDEX IF NOT EXISTS idx_projects_manager_id ON projects(manager_id);
+
+-- enable Row Level Security
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+CREATE POLICY projects_policy ON projects
+    FOR ALL
+    USING (workspace_id = current_setting('app.current_workspace_id', true)::UUID)
+    WITH CHECK (workspace_id = current_setting('app.current_workspace_id', true)::UUID);
+

@@ -4,6 +4,13 @@ use sqlx::FromRow;
 use uuid::Uuid;
 use validator::Validate;
 
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "tax_type", rename_all = "snake_case")]
+pub enum TaxType {
+  Percentage,
+  FixedAmount,
+}
+
 /// Represents a product record in the database.
 /// This struct is derived from `sqlx::FromRow` to allow direct mapping from database query results.
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -26,8 +33,8 @@ pub struct Product {
   pub minimum_stock: Option<i32>,
   pub maximum_stock: Option<i32>,
   pub reorder_level: Option<i32>,
-  pub current_stock: Option<i32>,
-  pub tax_type: Option<String>,
+  pub stock: Option<i32>,
+  pub tax_type: Option<TaxType>,
   pub tax_rate: Option<rust_decimal::Decimal>,
   pub tax_amount: Option<rust_decimal::Decimal>,
   pub is_active: bool,
@@ -66,8 +73,8 @@ pub struct CreateProductRequest {
   pub minimum_stock: Option<i32>,
   pub maximum_stock: Option<i32>,
   pub reorder_level: Option<i32>,
-  pub current_stock: Option<i32>,
-  pub tax_type: Option<String>,
+  pub stock: Option<i32>,
+  pub tax_type: Option<TaxType>,
   pub tax_rate: Option<rust_decimal::Decimal>,
   pub tax_amount: Option<rust_decimal::Decimal>,
 }
@@ -95,8 +102,8 @@ pub struct UpdateProductRequest {
   pub minimum_stock: Option<i32>,
   pub maximum_stock: Option<i32>,
   pub reorder_level: Option<i32>,
-  pub current_stock: Option<i32>,
-  pub tax_type: Option<String>,
+  pub stock: Option<i32>,
+  pub tax_type: Option<TaxType>,
   pub tax_rate: Option<rust_decimal::Decimal>,
   pub tax_amount: Option<rust_decimal::Decimal>,
   pub is_active: Option<bool>,
@@ -125,8 +132,8 @@ pub struct ProductResponse {
   pub minimum_stock: Option<i32>,
   pub maximum_stock: Option<i32>,
   pub reorder_level: Option<i32>,
-  pub current_stock: Option<i32>,
-  pub tax_type: Option<String>,
+  pub stock: Option<i32>,
+  pub tax_type: Option<TaxType>,
   pub tax_rate: Option<rust_decimal::Decimal>,
   pub tax_amount: Option<rust_decimal::Decimal>,
   pub is_active: bool,
@@ -163,7 +170,7 @@ impl From<Product> for ProductResponse {
       minimum_stock: product.minimum_stock,
       maximum_stock: product.maximum_stock,
       reorder_level: product.reorder_level,
-      current_stock: product.current_stock,
+      stock: product.stock,
       tax_type: product.tax_type,
       tax_rate: product.tax_rate,
       tax_amount: product.tax_amount,

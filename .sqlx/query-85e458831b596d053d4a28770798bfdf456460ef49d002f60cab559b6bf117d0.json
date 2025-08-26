@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO workspaces (id, name, description, owner_id)\n            VALUES ($1, $2, $3, $4)\n            RETURNING id, name, description, owner_id, created_at, updated_at\n            ",
+  "query": "\n            UPDATE workspaces\n            SET \n                name = COALESCE($2, name),\n                description = COALESCE($3, description),\n                updated_at = CURRENT_TIMESTAMP\n            WHERE id = $1\n            RETURNING id, name, description, owner_id, created_by, updated_by, created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -25,11 +25,21 @@
       },
       {
         "ordinal": 4,
+        "name": "created_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 5,
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -38,8 +48,7 @@
       "Left": [
         "Uuid",
         "Varchar",
-        "Text",
-        "Uuid"
+        "Text"
       ]
     },
     "nullable": [
@@ -47,9 +56,11 @@
       false,
       true,
       false,
+      true,
+      true,
       false,
       false
     ]
   },
-  "hash": "77517e79629db1cc9716acd2c2b1de505d889156e0242942f2e48cf0e9fb2586"
+  "hash": "85e458831b596d053d4a28770798bfdf456460ef49d002f60cab559b6bf117d0"
 }

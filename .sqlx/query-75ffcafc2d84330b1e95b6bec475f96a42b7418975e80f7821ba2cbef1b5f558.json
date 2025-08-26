@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, current_stock, tax_type, tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n                FROM products \n                WHERE workspace_id = $1 AND is_active = true\n                  AND id IN (\n                    SELECT p.id FROM products p\n                    JOIN workspaces w ON p.workspace_id = w.id\n                    JOIN workspace_users wu ON w.id = wu.workspace_id\n                    WHERE wu.user_id = $2\n                  )\n                ORDER BY name ASC\n            ",
+  "query": "\n                UPDATE products \n                SET \n                    code = COALESCE($3, code),\n                    name = COALESCE($4, name),\n                    category_id = COALESCE($5, category_id),\n                    base_unit = COALESCE($6, base_unit),\n                    unit_on_report_preview = COALESCE($7, unit_on_report_preview),\n                    selling_price = COALESCE($8, selling_price),\n                    unit_cost = COALESCE($9, unit_cost),\n                    supplier_id = COALESCE($10, supplier_id),\n                    track_inventory = COALESCE($11, track_inventory),\n                    description = COALESCE($12, description),\n                    sku = COALESCE($13, sku),\n                    barcode = COALESCE($14, barcode),\n                    minimum_stock = COALESCE($15, minimum_stock),\n                    maximum_stock = COALESCE($16, maximum_stock),\n                    reorder_level = COALESCE($17, reorder_level),\n                    stock = COALESCE($18, stock),\n                    tax_type = COALESCE($19, tax_type),\n                    tax_rate = COALESCE($20, tax_rate),\n                    tax_amount = COALESCE($21, tax_amount),\n                    is_active = COALESCE($22, is_active),\n                    updated_by = $23,\n                    updated_at = NOW()\n                WHERE id = $1 AND workspace_id = $2\n                RETURNING \n                    id, code, name, category_id, base_unit, unit_on_report_preview,\n                    selling_price, unit_cost, supplier_id, track_inventory,\n                    description, sku, barcode, minimum_stock, maximum_stock,\n                    reorder_level, stock, tax_type as \"tax_type: TaxType\", tax_rate, tax_amount,\n                    is_active, workspace_id, created_by, updated_by, created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -85,13 +85,23 @@
       },
       {
         "ordinal": 16,
-        "name": "current_stock",
+        "name": "stock",
         "type_info": "Int4"
       },
       {
         "ordinal": 17,
-        "name": "tax_type",
-        "type_info": "Varchar"
+        "name": "tax_type: TaxType",
+        "type_info": {
+          "Custom": {
+            "name": "tax_type",
+            "kind": {
+              "Enum": [
+                "percentage",
+                "fixed_amount"
+              ]
+            }
+          }
+        }
       },
       {
         "ordinal": 18,
@@ -137,6 +147,37 @@
     "parameters": {
       "Left": [
         "Uuid",
+        "Uuid",
+        "Varchar",
+        "Varchar",
+        "Uuid",
+        "Varchar",
+        "Varchar",
+        "Numeric",
+        "Numeric",
+        "Uuid",
+        "Bool",
+        "Text",
+        "Varchar",
+        "Varchar",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        {
+          "Custom": {
+            "name": "tax_type",
+            "kind": {
+              "Enum": [
+                "percentage",
+                "fixed_amount"
+              ]
+            }
+          }
+        },
+        "Numeric",
+        "Numeric",
+        "Bool",
         "Uuid"
       ]
     },
@@ -169,5 +210,5 @@
       false
     ]
   },
-  "hash": "4605858af4c396e5a2e621a69d693d7c202018befddb01e1fb7af409595cb64a"
+  "hash": "75ffcafc2d84330b1e95b6bec475f96a42b7418975e80f7821ba2cbef1b5f558"
 }
