@@ -3,6 +3,14 @@ use uuid::Uuid;
 
 use crate::errors::{AppError, AuthError};
 
+/// Wrapper for User ID to distinguish from Workspace ID in request extensions
+#[derive(Debug, Clone, Copy)]
+pub struct UserId(pub Uuid);
+
+/// Wrapper for Workspace ID to distinguish from User ID in request extensions  
+#[derive(Debug, Clone, Copy)]
+pub struct WorkspaceId(pub Uuid);
+
 /// Extractor for getting the current authenticated user's ID from the request.
 ///
 /// This extractor retrieves the user ID that was added to the request extensions
@@ -32,11 +40,11 @@ where
   type Rejection = AppError;
 
   async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-    // Extract the user ID from the request extensions
+    // Extract the user ID from the request extensions using the typed wrapper
     let user_id = parts
       .extensions
-      .get::<Uuid>()
-      .copied()
+      .get::<UserId>()
+      .map(|uid| uid.0)
       .ok_or_else(|| AppError::Authentication(AuthError::MissingToken))?;
 
     Ok(CurrentUser { user_id })

@@ -33,11 +33,16 @@ pub async fn login_user_handler(State(state): State<Arc<AppState>>, Json(body): 
 ///
 /// This handler demonstrates how to use the `CurrentUser` extractor to access
 /// the authenticated user's information in protected routes.
+/// 
+/// Note: With RLS enabled, the workspace query will automatically be filtered
+/// based on the current session variables set by the JWT middleware.
 pub async fn get_current_user_handler(State(state): State<Arc<AppState>>, current_user: CurrentUser) -> Result<(StatusCode, Json<Value>), AppError> {
   // Find the user in the database using the ID from the JWT token
   let user = state.auth_repository.find_by_id(current_user.user_id).await?;
 
   if let Some(user) = user {
+    // Get user workspaces - this query is now protected by RLS and will only return
+    // workspaces accessible to the current user based on session variables
     let workspace = state.workspace_repository.get_user_workspaces(user.id).await?;
     let response = json!({"status": "success", "user": user, "workspace": workspace});
     Ok((StatusCode::OK, Json(response)))

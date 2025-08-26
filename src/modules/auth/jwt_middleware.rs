@@ -13,7 +13,7 @@ use crate::modules::datastores::workspaces::workspace_models::WorkspaceRole;
 
 use crate::{
   errors::{AppError, AuthError},
-  modules::auth::auth_service::Claims,
+  modules::auth::{auth_service::Claims, current_user::{UserId, WorkspaceId}},
   state::AppState,
   utils::PostgresSessionExt,
 };
@@ -84,12 +84,12 @@ pub async fn jwt_middleware(State(state): State<Arc<AppState>>, mut request: Req
 
   debug!("Session settings configured for user: {}, workspace: {:?}", user_id, workspace_id);
 
-  // Add user to request
-  request.extensions_mut().insert(user_id);
+  // Add user to request using typed wrapper
+  request.extensions_mut().insert(UserId(user_id));
 
-  // Add workspace_id to request if present
+  // Add workspace_id to request if present using typed wrapper
   if let Some(ws_id) = workspace_id {
-    request.extensions_mut().insert(ws_id);
+    request.extensions_mut().insert(WorkspaceId(ws_id));
   }
 
   // Process request
