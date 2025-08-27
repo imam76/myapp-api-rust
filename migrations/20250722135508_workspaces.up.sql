@@ -57,12 +57,12 @@ CREATE POLICY workspaces_policy ON workspaces
     USING (id IN (
         SELECT workspace_id 
         FROM workspace_users 
-        WHERE user_id = current_setting('app.current_user_id', true)::UUID
+        WHERE user_id = (SELECT current_setting('app.current_user_id', true)::UUID)
     ))
     WITH CHECK (id IN (
         SELECT workspace_id 
         FROM workspace_users 
-        WHERE user_id = current_setting('app.current_user_id', true)::UUID
+        WHERE user_id = (SELECT current_setting('app.current_user_id', true)::UUID)
     ));
 
 -- Policy for workspace_users
@@ -71,13 +71,13 @@ CREATE POLICY workspace_users_access_policy ON workspace_users
     FOR ALL
     USING (
         -- User dapat melihat keanggotaan mereka sendiri
-        user_id = current_setting('app.current_user_id', true)::UUID
+        user_id = (SELECT current_setting('app.current_user_id', true)::UUID)
         OR
         -- Admin workspace dapat melihat semua anggota
         workspace_id IN (
             SELECT workspace_id
             FROM workspace_users
-            WHERE user_id = current_setting('app.current_user_id', true)::UUID 
+            WHERE user_id = (SELECT current_setting('app.current_user_id', true)::UUID)
             AND role = 'admin'
         )
     )
@@ -86,7 +86,7 @@ CREATE POLICY workspace_users_access_policy ON workspace_users
         workspace_id IN (
             SELECT workspace_id
             FROM workspace_users
-            WHERE user_id = current_setting('app.current_user_id', true)::UUID 
+            WHERE user_id = (SELECT current_setting('app.current_user_id', true)::UUID)
             AND role = 'admin'
         )
     );

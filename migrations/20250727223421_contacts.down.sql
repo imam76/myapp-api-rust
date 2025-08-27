@@ -14,5 +14,8 @@ DROP INDEX IF EXISTS idx_contacts_workspace_id;
 -- Remove workspace_id column if present
 ALTER TABLE contacts DROP COLUMN IF EXISTS workspace_id;
 
+-- Drop policy first
+DROP POLICY IF EXISTS contacts_policy ON contacts;
+
 -- Drop table
 DROP TABLE IF EXISTS contacts;

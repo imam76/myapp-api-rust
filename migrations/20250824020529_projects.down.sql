@@ -15,6 +15,9 @@ DROP INDEX IF EXISTS idx_projects_workspace_id;
 DROP INDEX IF EXISTS idx_projects_name;
 DROP INDEX IF EXISTS idx_projects_code;
 
+-- Drop policy first
+DROP POLICY IF EXISTS projects_policy ON projects;
+
 -- Drop table
 DROP TABLE IF EXISTS projects;
 

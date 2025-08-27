@@ -12,8 +12,11 @@ DROP INDEX IF EXISTS idx_discounts_workspace_id;
 DROP INDEX IF EXISTS idx_discounts_name;
 DROP INDEX IF EXISTS idx_discounts_code;
 
--- Drop table
+-- Drop policy first
+DROP POLICY IF EXISTS discounts_policy ON discounts;
+
+-- Drop table first before dropping the enum
 DROP TABLE IF EXISTS discounts;
 
--- Drop enum
+-- Drop enum after table is dropped
 DROP TYPE IF EXISTS discount_type;

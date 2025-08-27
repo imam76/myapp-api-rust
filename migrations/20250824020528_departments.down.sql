@@ -12,8 +12,11 @@ DROP INDEX IF EXISTS idx_departments_workspace_id;
 DROP INDEX IF EXISTS idx_departments_name;
 DROP INDEX IF EXISTS idx_departments_code;
 
--- Drop table
+-- Drop policy first
+DROP POLICY IF EXISTS departments_policy ON departments;
+
+-- Drop table first before dropping the enum
 DROP TABLE IF EXISTS departments;
 
--- Drop enum
+-- Drop enum after table is dropped
 DROP TYPE IF EXISTS department_status;

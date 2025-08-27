@@ -27,6 +27,10 @@ DROP INDEX IF EXISTS idx_product_categories_code;
 ALTER TABLE products DROP COLUMN IF EXISTS workspace_id;
 ALTER TABLE product_categories DROP COLUMN IF EXISTS workspace_id;
 
+-- Drop policies first
+DROP POLICY IF EXISTS products_policy ON products;
+DROP POLICY IF EXISTS product_categories_policy ON product_categories;
+
 -- Drop tables
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS product_categories;

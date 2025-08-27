@@ -47,6 +47,6 @@ CREATE TRIGGER update_projects_updated_at
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 CREATE POLICY projects_policy ON projects
     FOR ALL
-    USING (workspace_id = current_setting('app.current_workspace_id', true)::UUID)
-    WITH CHECK (workspace_id = current_setting('app.current_workspace_id', true)::UUID);
+    USING (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID))
+    WITH CHECK (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID));
 

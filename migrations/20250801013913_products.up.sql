@@ -37,8 +37,8 @@ ALTER TABLE product_categories ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY product_categories_policy ON product_categories
     FOR ALL
-    USING (workspace_id = current_setting('app.current_workspace_id', true)::UUID)
-    WITH CHECK (workspace_id = current_setting('app.current_workspace_id', true)::UUID);
+    USING (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID))
+    WITH CHECK (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID));
 
 
 CREATE TABLE IF NOT EXISTS products (
@@ -87,5 +87,5 @@ ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY products_policy ON products
     FOR ALL
-    USING (workspace_id = current_setting('app.current_workspace_id', true)::UUID)
-    WITH CHECK (workspace_id = current_setting('app.current_workspace_id', true)::UUID);
+    USING (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID))
+    WITH CHECK (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID));

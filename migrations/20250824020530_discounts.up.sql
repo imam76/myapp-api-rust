@@ -44,6 +44,6 @@ CREATE TRIGGER update_discounts_updated_at
 ALTER TABLE discounts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY discounts_policy ON discounts
     FOR ALL
-    USING (workspace_id = current_setting('app.current_workspace_id', true)::UUID)
-    WITH CHECK (workspace_id = current_setting('app.current_workspace_id', true)::UUID);
+    USING (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID))
+    WITH CHECK (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID));
 
