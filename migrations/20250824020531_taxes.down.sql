@@ -15,6 +15,3 @@ DROP POLICY IF EXISTS taxes_policy ON taxes;
 
 -- Drop table first before dropping the enum
 DROP TABLE IF EXISTS taxes;
-
--- Drop enum after table is dropped
-DROP TYPE IF EXISTS tax_type;
