@@ -1,12 +1,17 @@
 use axum::{
   extract::{Path, State},
-  http::StatusCode,
   response::Json,
 };
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::{errors::AppError, modules::auth::current_user::CurrentUser, state::AppState};
+use crate::{
+  AppResult,
+  errors::AppError, 
+  modules::auth::current_user::CurrentUser, 
+  responses::ApiResponse,
+  state::AppState
+};
 
 use super::workspace_models::{
   AddUserToWorkspaceRequest, CreateWorkspaceRequest, UpdateUserRoleRequest, UpdateWorkspaceRequest, Workspace, WorkspaceUserInfo, WorkspaceWithRole,
@@ -16,17 +21,18 @@ pub async fn create_workspace(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
   Json(request): Json<CreateWorkspaceRequest>,
-) -> Result<Json<Workspace>, AppError> {
+) -> AppResult<Json<ApiResponse<Workspace>>> {
   let workspace = state.workspace_repository.create_workspace(&request, current_user.user_id).await?;
 
-  Ok(Json(workspace))
+  let response = ApiResponse::success(workspace, "Workspace created successfully");
+  Ok(Json(response))
 }
 
 pub async fn get_workspace(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
   Path(workspace_id): Path<String>,
-) -> Result<Json<Workspace>, AppError> {
+) -> AppResult<Json<ApiResponse<Workspace>>> {
   // Parse UUID with global error handling
   let workspace_id = workspace_id.parse::<Uuid>()?;
 
@@ -47,7 +53,8 @@ pub async fn get_workspace(
     })
   })?;
 
-  Ok(Json(workspace))
+  let response = ApiResponse::success(workspace, "Workspace retrieved successfully");
+  Ok(Json(response))
 }
 
 pub async fn update_workspace(
@@ -55,7 +62,7 @@ pub async fn update_workspace(
   current_user: CurrentUser,
   Path(workspace_id): Path<String>,
   Json(request): Json<UpdateWorkspaceRequest>,
-) -> Result<Json<Workspace>, AppError> {
+) -> AppResult<Json<ApiResponse<Workspace>>> {
   // Parse UUID with global error handling
   let workspace_id = workspace_id.parse::<Uuid>()?;
 
@@ -68,14 +75,15 @@ pub async fn update_workspace(
 
   let workspace = state.workspace_repository.update_workspace(workspace_id, &request).await?;
 
-  Ok(Json(workspace))
+  let response = ApiResponse::success(workspace, "Workspace updated successfully");
+  Ok(Json(response))
 }
 
 pub async fn delete_workspace(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
   Path(workspace_id): Path<String>,
-) -> Result<StatusCode, AppError> {
+) -> AppResult<Json<ApiResponse<()>>> {
   // Parse UUID with global error handling
   let workspace_id = workspace_id.parse::<Uuid>()?;
 
@@ -88,20 +96,22 @@ pub async fn delete_workspace(
 
   state.workspace_repository.delete_workspace(workspace_id).await?;
 
-  Ok(StatusCode::NO_CONTENT)
+  let response = ApiResponse::success((), "Workspace deleted successfully");
+  Ok(Json(response))
 }
 
-pub async fn get_user_workspaces(State(state): State<Arc<AppState>>, current_user: CurrentUser) -> Result<Json<Vec<WorkspaceWithRole>>, AppError> {
+pub async fn get_user_workspaces(State(state): State<Arc<AppState>>, current_user: CurrentUser) -> AppResult<Json<ApiResponse<Vec<WorkspaceWithRole>>>> {
   let workspaces = state.workspace_repository.get_user_workspaces(current_user.user_id).await?;
 
-  Ok(Json(workspaces))
+  let response = ApiResponse::success(workspaces, "User workspaces retrieved successfully");
+  Ok(Json(response))
 }
 
 pub async fn get_workspace_users(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
   Path(workspace_id): Path<String>,
-) -> Result<Json<Vec<WorkspaceUserInfo>>, AppError> {
+) -> AppResult<Json<ApiResponse<Vec<WorkspaceUserInfo>>>> {
   // Parse UUID with global error handling
   let workspace_id = workspace_id.parse::<Uuid>()?;
 
@@ -117,7 +127,8 @@ pub async fn get_workspace_users(
 
   let users = state.workspace_repository.get_workspace_users(workspace_id).await?;
 
-  Ok(Json(users))
+  let response = ApiResponse::success(users, "Workspace users retrieved successfully");
+  Ok(Json(response))
 }
 
 pub async fn add_user_to_workspace(
@@ -125,7 +136,7 @@ pub async fn add_user_to_workspace(
   current_user: CurrentUser,
   Path(workspace_id): Path<String>,
   Json(request): Json<AddUserToWorkspaceRequest>,
-) -> Result<Json<()>, AppError> {
+) -> AppResult<Json<ApiResponse<()>>> {
   // Parse UUID with global error handling
   let workspace_id = workspace_id.parse::<Uuid>()?;
 
@@ -141,14 +152,15 @@ pub async fn add_user_to_workspace(
     .add_user_to_workspace(workspace_id, request.user_id, request.role)
     .await?;
 
-  Ok(Json(()))
+  let response = ApiResponse::success((), "User added to workspace successfully");
+  Ok(Json(response))
 }
 
 pub async fn remove_user_from_workspace(
   State(state): State<Arc<AppState>>,
   current_user: CurrentUser,
   Path((workspace_id, user_id)): Path<(String, String)>,
-) -> Result<StatusCode, AppError> {
+) -> AppResult<Json<ApiResponse<()>>> {
   // Parse UUIDs with global error handling
   let workspace_id = workspace_id.parse::<Uuid>()?;
   let user_id = user_id.parse::<Uuid>()?;
@@ -167,7 +179,8 @@ pub async fn remove_user_from_workspace(
 
   state.workspace_repository.remove_user_from_workspace(workspace_id, user_id).await?;
 
-  Ok(StatusCode::NO_CONTENT)
+  let response = ApiResponse::success((), "User removed from workspace successfully");
+  Ok(Json(response))
 }
 
 pub async fn update_user_role(
@@ -175,7 +188,7 @@ pub async fn update_user_role(
   current_user: CurrentUser,
   Path((workspace_id, user_id)): Path<(String, String)>,
   Json(request): Json<UpdateUserRoleRequest>,
-) -> Result<Json<()>, AppError> {
+) -> AppResult<Json<ApiResponse<()>>> {
   // Parse UUIDs with global error handling
   let workspace_id = workspace_id.parse::<Uuid>()?;
   let user_id = user_id.parse::<Uuid>()?;
@@ -189,5 +202,6 @@ pub async fn update_user_role(
 
   state.workspace_repository.update_user_role(workspace_id, user_id, request.role).await?;
 
-  Ok(Json(()))
+  let response = ApiResponse::success((), "User role updated successfully");
+  Ok(Json(response))
 }
