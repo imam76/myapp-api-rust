@@ -30,3 +30,24 @@ CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- enable RLS and policies are not needed for users table
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY users_select_policy ON users
+    FOR SELECT
+    USING (true);
+
+CREATE POLICY users_insert_policy ON users
+    FOR INSERT
+    WITH CHECK (true);
+
+CREATE POLICY users_update_policy ON users
+    FOR UPDATE
+    USING (true)
+    WITH CHECK (true);
+
+CREATE POLICY users_delete_policy ON users
+    FOR DELETE
+    USING (true)
+    WITH CHECK (true);
