@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS discounts (
     maximum_discount NUMERIC(15,2),
     usage_limit INTEGER,
     used_count INTEGER DEFAULT 0,
-    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     created_by UUID REFERENCES users(id),
     updated_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -42,8 +42,22 @@ CREATE TRIGGER update_discounts_updated_at
 
 -- enable Row Level Security
 ALTER TABLE discounts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY discounts_policy ON discounts
-    FOR ALL
-    USING (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID))
-    WITH CHECK (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID));
+
+-- Define new, cleaner policies using the optimized helper function
+CREATE POLICY discounts_select_policy ON discounts
+    FOR SELECT
+    USING ( has_workspace_access(workspace_id, ARRAY['admin', 'member', 'viewer']) );
+
+CREATE POLICY discounts_insert_policy ON discounts
+    FOR INSERT
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) );
+
+CREATE POLICY discounts_update_policy ON discounts
+    FOR UPDATE
+    USING ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) )
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) );
+
+CREATE POLICY discounts_delete_policy ON discounts
+    FOR DELETE
+    USING ( has_workspace_access(workspace_id, ARRAY['admin']) );
 

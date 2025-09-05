@@ -2,7 +2,7 @@
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'project_status') THEN
-        CREATE TYPE project_status AS ENUM ('planning', 'active', 'on_hold', 'completed', 'cancelled');
+        CREATE TYPE project_status AS ENUM ('planning', 'active', 'on_hold', 'completed', 'cancelled', 'archived', 'inactive');
     END IF;
 END $$;
 
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS projects (
     actual_cost NUMERIC(15,2) DEFAULT 0.00,
     status project_status NOT NULL DEFAULT 'planning',
     priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'critical')),
-    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     created_by UUID REFERENCES users(id),
     updated_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -45,8 +45,22 @@ CREATE TRIGGER update_projects_updated_at
 
 -- enable Row Level Security
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
-CREATE POLICY projects_policy ON projects
-    FOR ALL
-    USING (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID))
-    WITH CHECK (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID));
+
+-- Define new, cleaner policies using the optimized helper function
+CREATE POLICY projects_select_policy ON projects
+    FOR SELECT
+    USING ( has_workspace_access(workspace_id, ARRAY['admin', 'member', 'viewer']) );
+
+CREATE POLICY projects_insert_policy ON projects
+    FOR INSERT
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) );
+
+CREATE POLICY projects_update_policy ON projects
+    FOR UPDATE
+    USING ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) )
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) );
+
+CREATE POLICY projects_delete_policy ON projects
+    FOR DELETE
+    USING ( has_workspace_access(workspace_id, ARRAY['admin']) );
 

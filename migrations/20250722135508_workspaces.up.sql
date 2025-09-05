@@ -49,44 +49,70 @@ CREATE TRIGGER update_workspaces_users_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- NOW ENABLE RLS after both tables exist
--- Enable Row Level Security for workspaces
+-- Automatically make the workspace creator an 'admin' of that workspace.
+CREATE OR REPLACE FUNCTION add_creator_to_workspace_members()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- The user who creates the workspace (NEW.created_by) is made an admin.
+    INSERT INTO workspace_users (workspace_id, user_id, role)
+    VALUES (NEW.id, NEW.created_by, 'admin');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Drop trigger if it exists to ensure it's idempotent
+DROP TRIGGER IF EXISTS trigger_add_creator_as_admin ON workspaces;
+
+CREATE TRIGGER trigger_add_creator_as_admin
+AFTER INSERT ON workspaces
+FOR EACH ROW
+EXECUTE FUNCTION add_creator_to_workspace_members();
+
+
+-- RLS POLICIES
+-- First, drop the old generic policies
 ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
-CREATE POLICY workspaces_policy ON workspaces
-    FOR ALL
+DROP POLICY IF EXISTS workspaces_policy ON workspaces;
+
+ALTER TABLE workspace_users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS workspace_users_access_policy ON workspace_users;
+
+
+-- === New, Granular Policies for 'workspaces' table ===
+
+-- SELECT: Any user who is a member of the workspace can see it.
+CREATE POLICY workspaces_select_policy ON workspaces
+    FOR SELECT
     USING (id IN (
-        SELECT workspace_id 
-        FROM workspace_users 
-        WHERE user_id = (SELECT current_setting('app.current_user_id', true)::UUID)
-    ))
-    WITH CHECK (id IN (
-        SELECT workspace_id 
-        FROM workspace_users 
-        WHERE user_id = (SELECT current_setting('app.current_user_id', true)::UUID)
+        SELECT workspace_id FROM workspace_users WHERE user_id = current_setting('app.current_user_id', true)::UUID
     ));
 
--- Policy for workspace_users
-ALTER TABLE workspace_users ENABLE ROW LEVEL SECURITY;
-CREATE POLICY workspace_users_access_policy ON workspace_users
-    FOR ALL
+-- UPDATE: Only 'admin' members can update workspace details.
+CREATE POLICY workspaces_update_policy ON workspaces
+    FOR UPDATE
+    USING ( has_workspace_access(id, ARRAY['admin']) );
+
+-- DELETE: Only the original owner can delete the workspace (strongest protection).
+CREATE POLICY workspaces_delete_policy ON workspaces
+    FOR DELETE
+    USING ( owner_id = current_setting('app.current_user_id', true)::UUID );
+
+
+-- === New, Granular Policies for 'workspace_users' (managing members) ===
+
+-- SELECT: An admin can see all members in their workspace, others can only see their own membership.
+CREATE POLICY workspace_users_select_policy ON workspace_users
+    FOR SELECT
     USING (
-        -- User dapat melihat keanggotaan mereka sendiri
-        user_id = (SELECT current_setting('app.current_user_id', true)::UUID)
+        -- An admin of the workspace can see all members
+        has_workspace_access(workspace_id, ARRAY['admin'])
         OR
-        -- Admin workspace dapat melihat semua anggota
-        workspace_id IN (
-            SELECT workspace_id
-            FROM workspace_users
-            WHERE user_id = (SELECT current_setting('app.current_user_id', true)::UUID)
-            AND role = 'admin'
-        )
-    )
-    WITH CHECK (
-        -- Hanya admin workspace yang dapat menambah/mengubah keanggotaan
-        workspace_id IN (
-            SELECT workspace_id
-            FROM workspace_users
-            WHERE user_id = (SELECT current_setting('app.current_user_id', true)::UUID)
-            AND role = 'admin'
-        )
+        -- A user can see their own membership record
+        user_id = current_setting('app.current_user_id', true)::UUID
     );
+
+-- INSERT/UPDATE/DELETE: Only admins can add, modify, or remove members.
+CREATE POLICY workspace_users_modify_policy ON workspace_users
+    FOR ALL -- Covers INSERT, UPDATE, DELETE for member management
+    USING ( has_workspace_access(workspace_id, ARRAY['admin']) )
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin']) );

@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS departments (
     manager_id UUID REFERENCES users(id) ON DELETE SET NULL,
     budget NUMERIC(15,2) DEFAULT 0.00,
     status department_status NOT NULL DEFAULT 'active',
-    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     created_by UUID REFERENCES users(id),
     updated_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -35,7 +35,21 @@ CREATE TRIGGER update_departments_updated_at
 
 -- enable Row Level Security
 ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
-CREATE POLICY departments_policy ON departments
-    FOR ALL
-    USING (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID))
-    WITH CHECK (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID));
+
+-- Define new, cleaner policies using the optimized helper function
+CREATE POLICY departments_select_policy ON departments
+    FOR SELECT
+    USING ( has_workspace_access(workspace_id, ARRAY['admin', 'member', 'viewer']) );
+
+CREATE POLICY departments_insert_policy ON departments
+    FOR INSERT
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) );
+
+CREATE POLICY departments_update_policy ON departments
+    FOR UPDATE
+    USING ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) )
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) );
+
+CREATE POLICY departments_delete_policy ON departments
+    FOR DELETE
+    USING ( has_workspace_access(workspace_id, ARRAY['admin']) );

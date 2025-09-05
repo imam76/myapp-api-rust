@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS taxes (
     is_compound BOOLEAN NOT NULL DEFAULT false,
     is_inclusive BOOLEAN NOT NULL DEFAULT false,
     is_active BOOLEAN NOT NULL DEFAULT true,
-    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     created_by UUID REFERENCES users(id),
     updated_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -35,10 +35,23 @@ EXECUTE FUNCTION update_updated_at_column();
 -- Enable Row Level Security
 ALTER TABLE product_categories ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY product_categories_policy ON product_categories
-    FOR ALL
-    USING (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID))
-    WITH CHECK (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID));
+-- Define new, cleaner policies using the optimized helper function
+CREATE POLICY product_categories_select_policy ON product_categories
+    FOR SELECT
+    USING ( has_workspace_access(workspace_id, ARRAY['admin', 'member', 'viewer']) );
+
+CREATE POLICY product_categories_insert_policy ON product_categories
+    FOR INSERT
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) );
+
+CREATE POLICY product_categories_update_policy ON product_categories
+    FOR UPDATE
+    USING ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) )
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) );
+
+CREATE POLICY product_categories_delete_policy ON product_categories
+    FOR DELETE
+    USING ( has_workspace_access(workspace_id, ARRAY['admin']) );
 
 
 CREATE TABLE IF NOT EXISTS products (
@@ -63,7 +76,7 @@ CREATE TABLE IF NOT EXISTS products (
     tax_rate NUMERIC(5,2) DEFAULT 0.00,
     tax_amount NUMERIC(15,2) DEFAULT 0.00,
     is_active BOOLEAN NOT NULL DEFAULT true,
-    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     created_by UUID REFERENCES users(id),
     updated_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -85,7 +98,20 @@ EXECUTE FUNCTION update_updated_at_column();
 -- Enable Row Level Security
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY products_policy ON products
-    FOR ALL
-    USING (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID))
-    WITH CHECK (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID));
+-- Define new, cleaner policies using the optimized helper function
+CREATE POLICY products_select_policy ON products
+    FOR SELECT
+    USING ( has_workspace_access(workspace_id, ARRAY['admin', 'member', 'viewer']) );
+
+CREATE POLICY products_insert_policy ON products
+    FOR INSERT
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) );
+
+CREATE POLICY products_update_policy ON products
+    FOR UPDATE
+    USING ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) )
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) );
+
+CREATE POLICY products_delete_policy ON products
+    FOR DELETE
+    USING ( has_workspace_access(workspace_id, ARRAY['admin']) );

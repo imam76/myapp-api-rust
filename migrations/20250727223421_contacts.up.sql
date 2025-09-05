@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS contacts (
     type VARCHAR(50) NOT NULL CHECK (type IN ('salesman', 'employee', 'supplier', 'customer')),
     address TEXT,
     is_active BOOLEAN NOT NULL DEFAULT true,
-    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     created_by UUID REFERENCES users(id),
     updated_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -31,7 +31,20 @@ EXECUTE FUNCTION update_updated_at_column();
 -- Enable Row Level Security
 ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY contacts_policy ON contacts
-    FOR ALL
-    USING (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID))
-    WITH CHECK (workspace_id = (SELECT current_setting('app.current_workspace_id', true)::UUID));
+-- Define new, cleaner policies using the optimized helper function
+CREATE POLICY contacts_select_policy ON contacts
+    FOR SELECT
+    USING ( has_workspace_access(workspace_id, ARRAY['admin', 'member', 'viewer']) );
+
+CREATE POLICY contacts_insert_policy ON contacts
+    FOR INSERT
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) );
+
+CREATE POLICY contacts_update_policy ON contacts
+    FOR UPDATE
+    USING ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) )
+    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin', 'member']) );
+
+CREATE POLICY contacts_delete_policy ON contacts
+    FOR DELETE
+    USING ( has_workspace_access(workspace_id, ARRAY['admin']) );
