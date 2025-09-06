@@ -59,6 +59,8 @@ pub struct WorkspaceWithRole {
   #[serde(flatten)]
   pub workspace: Workspace,
   pub user_role: WorkspaceRole,
+  #[serde(rename = "name")]
+  pub name: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

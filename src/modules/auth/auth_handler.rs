@@ -41,9 +41,9 @@ pub async fn get_current_user_handler(State(state): State<Arc<AppState>>, curren
   let user = state.auth_repository.find_by_id(current_user.user_id).await?;
 
   if let Some(user) = user {
-    // Get user workspaces - this query is now protected by RLS and will only return
-    // workspaces accessible to the current user based on session variables
-    let workspace = state.workspace_repository.get_user_workspaces(user.id).await?;
+    // Get user default workspace - this query is now protected by RLS and will only return
+    // the default workspace accessible to the current user based on session variables
+    let workspace = state.workspace_repository.get_user_default_workspace(user.id).await?;
     let response = json!({"status": "success", "user": user, "workspace": workspace});
     Ok((StatusCode::OK, Json(response)))
   } else {

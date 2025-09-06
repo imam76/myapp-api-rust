@@ -17,6 +17,7 @@ pub trait WorkspaceRepository: Send + Sync {
 
   // User workspace access
   async fn get_user_workspaces(&self, user_id: Uuid) -> Result<Vec<WorkspaceWithRole>, AppError>;
+  async fn get_user_default_workspace(&self, user_id: Uuid) -> Result<Option<WorkspaceWithRole>, AppError>;
   async fn get_workspace_users(&self, workspace_id: Uuid) -> Result<Vec<WorkspaceUserInfo>, AppError>;
 
   // User management in workspace
@@ -161,9 +162,11 @@ impl WorkspaceRepository for PostgresWorkspaceRepository {
     let workspaces = sqlx::query!(
       r#"
             SELECT w.id, w.name, w.description, w.owner_id, w.created_by, w.updated_by, w.created_at, w.updated_at,
-                   wu.role as "role!: WorkspaceRole"
+                   wu.role as "role!: WorkspaceRole",
+                   u.username as "owner_name?"
             FROM workspaces w
             JOIN workspace_users wu ON w.id = wu.workspace_id
+            LEFT JOIN users u ON w.owner_id = u.id
             WHERE wu.user_id = $1
             ORDER BY w.name
             "#,
@@ -184,10 +187,45 @@ impl WorkspaceRepository for PostgresWorkspaceRepository {
         updated_at: row.updated_at,
       },
       user_role: row.role,
+      name: row.owner_name,
     })
     .collect();
 
     Ok(workspaces)
+  }
+
+  async fn get_user_default_workspace(&self, user_id: Uuid) -> Result<Option<WorkspaceWithRole>, AppError> {
+    let workspace = sqlx::query!(
+      r#"
+            SELECT w.id, w.name, w.description, w.owner_id, w.created_by, w.updated_by, w.created_at, w.updated_at,
+                   wu.role as "role!: WorkspaceRole",
+                   u.username as "owner_name?"
+            FROM workspaces w
+            JOIN workspace_users wu ON w.id = wu.workspace_id
+            LEFT JOIN users u ON w.owner_id = u.id
+            WHERE wu.user_id = $1
+            ORDER BY w.created_at ASC
+            LIMIT 1
+            "#,
+      user_id
+    )
+    .fetch_optional(&self.pool)
+    .await?;
+
+    Ok(workspace.map(|row| WorkspaceWithRole {
+      workspace: Workspace {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        owner_id: row.owner_id,
+        created_by: row.created_by,
+        updated_by: row.updated_by,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      },
+      user_role: row.role,
+      name: row.owner_name,
+    }))
   }
 
   async fn get_workspace_users(&self, workspace_id: Uuid) -> Result<Vec<WorkspaceUserInfo>, AppError> {
