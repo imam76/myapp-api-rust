@@ -80,6 +80,19 @@ DROP POLICY IF EXISTS workspace_users_access_policy ON workspace_users;
 
 -- === New, Granular Policies for 'workspaces' table ===
 
+-- This allows authenticated users to create workspaces
+
+CREATE POLICY workspaces_insert_policy ON workspaces
+    FOR INSERT
+    WITH CHECK (
+        -- Allow any authenticated user to create a workspace
+        -- The creator will be set as the owner and admin via the trigger
+        current_setting('app.current_user_id', true)::UUID IS NOT NULL
+        AND
+        -- Ensure the owner_id matches the current user
+        owner_id = current_setting('app.current_user_id', true)::UUID
+    );
+
 -- SELECT: Any user who is a member of the workspace can see it.
 CREATE POLICY workspaces_select_policy ON workspaces
     FOR SELECT

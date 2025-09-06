@@ -1,5 +1,8 @@
 -- Down migration: workspaces
 
+-- Remove the workspace INSERT policy
+DROP POLICY IF EXISTS workspaces_insert_policy ON workspaces;
+
 -- Drop RLS policies first
 DROP POLICY IF EXISTS workspace_users_modify_policy ON workspace_users;
 DROP POLICY IF EXISTS workspace_users_select_policy ON workspace_users;
