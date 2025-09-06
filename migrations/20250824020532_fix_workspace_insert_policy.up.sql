@@ -1,1 +1,0 @@
--- Fix missing INSERT policy for workspaces table
