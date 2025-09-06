@@ -42,9 +42,7 @@ impl PostgresWorkspaceRepository {
 #[async_trait]
 impl WorkspaceRepository for PostgresWorkspaceRepository {
   async fn create_and_assign_owner(&self, payload: CreateWorkspaceRequest, owner_id: Uuid) -> Result<Workspace, AppError> {
-    let mut tx = self.pool.begin().await?;
-
-    // Step 1: Create the workspace
+    // Create the workspace - the database trigger will automatically add the creator to workspace_users
     let workspace = sqlx::query_as!(
       Workspace,
       r#"
@@ -57,23 +55,8 @@ impl WorkspaceRepository for PostgresWorkspaceRepository {
       owner_id,
       owner_id
     )
-    .fetch_one(&mut *tx)
+    .fetch_one(&self.pool)
     .await?;
-
-    // Step 2: Add the owner to workspace_users table with 'Admin' role
-    sqlx::query!(
-      r#"
-        INSERT INTO workspace_users (workspace_id, user_id, role)
-        VALUES ($1, $2, $3)
-        "#,
-      workspace.id,
-      owner_id,
-      WorkspaceRole::Admin as WorkspaceRole
-    )
-    .execute(&mut *tx)
-    .await?;
-
-    tx.commit().await?;
 
     Ok(workspace)
   }
