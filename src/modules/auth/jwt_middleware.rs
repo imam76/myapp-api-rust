@@ -54,10 +54,10 @@ pub async fn jwt_middleware(State(state): State<Arc<AppState>>, mut request: Req
   let path = request.uri().path();
   let is_workspace_list_endpoint = path == "/api/v1/workspaces" && request.method() == Method::GET;
 
+  // Only validate workspace access if X-Workspace-ID is provided AND it's not the workspace list endpoint
   if let Some(ws_id) = workspace_id {
-    // Skip workspace validation for certain endpoints
     if !is_workspace_list_endpoint {
-      // Check access and get role
+      // Check access and get role for workspace-specific operations
       let role_access = sqlx::query!(
         "SELECT role as \"role!: WorkspaceRole\" 
          FROM workspace_users 
@@ -83,8 +83,12 @@ pub async fn jwt_middleware(State(state): State<Arc<AppState>>, mut request: Req
   }
 
   // Set database session settings for RLS
-  // For workspace list endpoint, don't set workspace-specific settings even if header is present
-  let workspace_id_for_session = if is_workspace_list_endpoint { None } else { workspace_id.as_ref() };
+  // For workspace list endpoint, always set session without workspace context to get all user's workspaces
+  let workspace_id_for_session = if is_workspace_list_endpoint { 
+    None 
+  } else { 
+    workspace_id.as_ref() 
+  };
   
   if let Err(e) = state.db.set_session_settings(&user_id, workspace_id_for_session).await {
     error!("Failed to set session settings: {}", e);
