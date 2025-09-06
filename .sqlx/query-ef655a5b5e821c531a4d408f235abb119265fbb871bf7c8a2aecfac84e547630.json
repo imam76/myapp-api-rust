@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT w.id, w.name, w.description, w.owner_id, w.created_by, w.updated_by, w.created_at, w.updated_at,\n                   wu.role as \"role!: WorkspaceRole\"\n            FROM workspaces w\n            JOIN workspace_users wu ON w.id = wu.workspace_id\n            WHERE wu.user_id = $1\n            ORDER BY w.name\n            ",
+  "query": "\n            SELECT w.id, w.name, w.description, w.owner_id, w.created_by, w.updated_by, w.created_at, w.updated_at,\n                   wu.role as \"role!: WorkspaceRole\",\n                   u.username as \"owner_name?\"\n            FROM workspaces w\n            JOIN workspace_users wu ON w.id = wu.workspace_id\n            LEFT JOIN users u ON w.owner_id = u.id\n            WHERE wu.user_id = $1\n            ORDER BY w.name\n            ",
   "describe": {
     "columns": [
       {
@@ -58,6 +58,11 @@
             }
           }
         }
+      },
+      {
+        "ordinal": 9,
+        "name": "owner_name?",
+        "type_info": "Varchar"
       }
     ],
     "parameters": {
@@ -74,8 +79,9 @@
       true,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "01bde8adc8a9f8f2fdcf2919dce073a636eba5875e8cb7c7d10f196a45644696"
+  "hash": "ef655a5b5e821c531a4d408f235abb119265fbb871bf7c8a2aecfac84e547630"
 }

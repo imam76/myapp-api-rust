@@ -1,0 +1,87 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT w.id, w.name, w.description, w.owner_id, w.created_by, w.updated_by, w.created_at, w.updated_at,\n                   wu.role as \"role!: WorkspaceRole\",\n                   u.username as \"owner_name?\"\n            FROM workspaces w\n            JOIN workspace_users wu ON w.id = wu.workspace_id\n            LEFT JOIN users u ON w.owner_id = u.id\n            WHERE wu.user_id = $1\n            ORDER BY w.created_at ASC\n            LIMIT 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "owner_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "role!: WorkspaceRole",
+        "type_info": {
+          "Custom": {
+            "name": "workspace_role",
+            "kind": {
+              "Enum": [
+                "admin",
+                "member",
+                "viewer"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "owner_name?",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "245035b1baea1210f6762fcd8220a29fb5a828368ee6a3da285f3d246c768287"
+}
