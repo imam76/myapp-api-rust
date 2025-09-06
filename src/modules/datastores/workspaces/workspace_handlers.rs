@@ -22,7 +22,7 @@ pub async fn create_workspace(
   current_user: CurrentUser,
   Json(request): Json<CreateWorkspaceRequest>,
 ) -> AppResult<Json<ApiResponse<Workspace>>> {
-  let workspace = state.workspace_repository.create_workspace(&request, current_user.user_id).await?;
+  let workspace = state.workspace_repository.create_and_assign_owner(request, current_user.user_id).await?;
 
   let response = ApiResponse::success(workspace, "Workspace created successfully");
   Ok(Json(response))

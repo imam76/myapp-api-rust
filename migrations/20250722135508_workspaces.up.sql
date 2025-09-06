@@ -103,7 +103,16 @@ CREATE POLICY workspaces_select_policy ON workspaces
 -- UPDATE: Only 'admin' members can update workspace details.
 CREATE POLICY workspaces_update_policy ON workspaces
     FOR UPDATE
-    USING ( has_workspace_access(id, ARRAY['admin']) );
+    USING ( 
+        owner_id = current_setting('app.current_user_id', true)::UUID 
+        OR 
+        EXISTS (
+            SELECT 1 FROM workspace_users 
+            WHERE workspace_id = id 
+            AND user_id = current_setting('app.current_user_id', true)::UUID 
+            AND role = 'admin'
+        )
+    );
 
 -- DELETE: Only the original owner can delete the workspace (strongest protection).
 CREATE POLICY workspaces_delete_policy ON workspaces
@@ -127,5 +136,19 @@ CREATE POLICY workspace_users_select_policy ON workspace_users
 -- INSERT/UPDATE/DELETE: Only admins can add, modify, or remove members.
 CREATE POLICY workspace_users_modify_policy ON workspace_users
     FOR ALL -- Covers INSERT, UPDATE, DELETE for member management
-    USING ( has_workspace_access(workspace_id, ARRAY['admin']) )
-    WITH CHECK ( has_workspace_access(workspace_id, ARRAY['admin']) );
+    USING ( 
+        EXISTS (
+            SELECT 1 FROM workspace_users wu 
+            WHERE wu.workspace_id = workspace_users.workspace_id 
+            AND wu.user_id = current_setting('app.current_user_id', true)::UUID 
+            AND wu.role = 'admin'
+        )
+    )
+    WITH CHECK ( 
+        EXISTS (
+            SELECT 1 FROM workspace_users wu 
+            WHERE wu.workspace_id = workspace_users.workspace_id 
+            AND wu.user_id = current_setting('app.current_user_id', true)::UUID 
+            AND wu.role = 'admin'
+        )
+    );

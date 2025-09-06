@@ -1,7 +1,7 @@
 use super::workspace_models::{
   CreateWorkspaceRequest, UpdateWorkspaceRequest, Workspace, WorkspaceRole, WorkspaceUser, WorkspaceUserInfo, WorkspaceWithRole,
 };
-use crate::errors::AppError;
+use crate::{errors::AppError, utils::database_ext::PostgresSessionExt};
 use async_trait::async_trait;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -43,6 +43,9 @@ impl PostgresWorkspaceRepository {
 #[async_trait]
 impl WorkspaceRepository for PostgresWorkspaceRepository {
   async fn create_and_assign_owner(&self, payload: CreateWorkspaceRequest, owner_id: Uuid) -> Result<Workspace, AppError> {
+    // Set RLS context for the current user
+    self.pool.set_session_settings(&owner_id, None).await?;
+    
     // Create the workspace - the database trigger will automatically add the creator to workspace_users
     let workspace = sqlx::query_as!(
       Workspace,
