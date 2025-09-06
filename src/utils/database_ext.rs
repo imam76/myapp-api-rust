@@ -1,4 +1,4 @@
-use sqlx::{Error as SqlxError, PgPool, Row};
+use sqlx::{Error as SqlxError, PgPool};
 use tracing::debug;
 use uuid::Uuid;
 
