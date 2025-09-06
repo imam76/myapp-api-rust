@@ -187,7 +187,7 @@ impl WorkspaceRepository for PostgresWorkspaceRepository {
         updated_at: row.updated_at,
       },
       user_role: row.role,
-      name: row.owner_name,
+      owner_name: row.owner_name,
     })
     .collect();
 
@@ -224,7 +224,7 @@ impl WorkspaceRepository for PostgresWorkspaceRepository {
         updated_at: row.updated_at,
       },
       user_role: row.role,
-      name: row.owner_name,
+      owner_name: row.owner_name,
     }))
   }
 
