@@ -4,7 +4,7 @@ use axum::{Json, extract::State, http::StatusCode};
 use serde_json::{Value, json};
 
 use crate::{
-  errors::{AppError, NotFoundError},
+  errors::{AppError, AuthError},
   modules::auth::{
     auth_service::{login_user, register_user},
     current_user::CurrentUser,
@@ -47,9 +47,9 @@ pub async fn get_current_user_handler(State(state): State<Arc<AppState>>, curren
     let response = json!({"status": "success", "user": user, "workspace": workspace});
     Ok((StatusCode::OK, Json(response)))
   } else {
-    Err(AppError::NotFound(NotFoundError {
-      resource: "User".to_string(),
-      id: Some(current_user.user_id),
-    }))
+    // If JWT token is valid but user doesn't exist in database,
+    // this indicates an invalid/expired token or data inconsistency
+    // Return authentication error instead of not found error
+    Err(AppError::Authentication(AuthError::InvalidToken))
   }
 }
