@@ -1,6 +1,6 @@
 use axum::{
   extract::{Request, State},
-  http::{HeaderName, HeaderValue, header::AUTHORIZATION},
+  http::{HeaderName, HeaderValue, header::AUTHORIZATION, Method},
   middleware::Next,
   response::Response,
 };
@@ -50,33 +50,43 @@ pub async fn jwt_middleware(State(state): State<Arc<AppState>>, mut request: Req
   // Get user_id from claims
   let user_id = claims.sub;
 
-  if let Some(ws_id) = workspace_id {
-    // Check access and get role
-    let role_access = sqlx::query!(
-      "SELECT role as \"role!: WorkspaceRole\" 
-       FROM workspace_users 
-       WHERE user_id = $1 AND workspace_id = $2",
-      user_id,
-      ws_id
-    )
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|e| {
-      error!("Failed to verify workspace access: {}", e);
-      AppError::Internal("Database error while verifying workspace access".to_string())
-    })?;
+  // Check if this is an endpoint that doesn't require workspace validation
+  let path = request.uri().path();
+  let is_workspace_list_endpoint = path == "/api/v1/workspaces" && request.method() == Method::GET;
 
-    match role_access {
-      Some(row) => {
-        // Add role to request extensions for route-level authorization
-        request.extensions_mut().insert(row.role);
+  if let Some(ws_id) = workspace_id {
+    // Skip workspace validation for certain endpoints
+    if !is_workspace_list_endpoint {
+      // Check access and get role
+      let role_access = sqlx::query!(
+        "SELECT role as \"role!: WorkspaceRole\" 
+         FROM workspace_users 
+         WHERE user_id = $1 AND workspace_id = $2",
+        user_id,
+        ws_id
+      )
+      .fetch_optional(&state.db)
+      .await
+      .map_err(|e| {
+        error!("Failed to verify workspace access: {}", e);
+        AppError::Internal("Database error while verifying workspace access".to_string())
+      })?;
+
+      match role_access {
+        Some(row) => {
+          // Add role to request extensions for route-level authorization
+          request.extensions_mut().insert(row.role);
+        }
+        None => return Err(AppError::Authentication(AuthError::InvalidWorkspace)),
       }
-      None => return Err(AppError::Authentication(AuthError::InvalidWorkspace)),
     }
   }
 
   // Set database session settings for RLS
-  if let Err(e) = state.db.set_session_settings(&user_id, workspace_id.as_ref()).await {
+  // For workspace list endpoint, don't set workspace-specific settings even if header is present
+  let workspace_id_for_session = if is_workspace_list_endpoint { None } else { workspace_id.as_ref() };
+  
+  if let Err(e) = state.db.set_session_settings(&user_id, workspace_id_for_session).await {
     error!("Failed to set session settings: {}", e);
     // Convert SQLx error to AppError properly
     return Err(AppError::Internal(format!("Failed to set database session: {}", e)));
